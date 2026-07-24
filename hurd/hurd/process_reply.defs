@@ -1,0 +1,207 @@
+/* Reply half of wait
+   Copyright (C) 1991,93,94,96,2001,13,21 Free Software Foundation, Inc.
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+/* Written by Michael I. Bushnell.  */
+
+subsystem process_reply 24100;   /* must match process.defs + 100 */
+
+#include <hurd/hurd_types.defs>
+
+type reply_port_t = polymorphic | MACH_MSG_TYPE_PORT_SEND_ONCE
+	ctype: mach_port_t;
+
+skip; skip;  /* get/set hostid */
+skip; skip;  /* get/set hostname */
+skip; /* getprivports */
+skip; /* getallpids */
+skip; skip; /* set/get execdata */
+skip; /* execdata_notify */
+skip; skip; /* proc_uname, proc_register_version */
+
+skip; /* reauthenticate */
+skip; /* child */
+
+simpleroutine proc_setmsgport_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	in oldmsgport: mach_port_t);
+
+skip; /* reassign */
+skip; /* was setowner */
+skip; /* getpids */
+skip; /* set_arg_locations */
+skip; /* get_arg_locations */
+
+simpleroutine proc_getmsgport_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	in msgports: mach_port_poly_t);
+
+simpleroutine proc_wait_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	in status: int;
+	in sigcode: int;
+	in rusage: rusage_t;
+	in pid_status: pid_t);
+
+skip; /* proc_dostop */
+skip; /* proc_handle_exceptions */
+skip; /* proc_mark_stop */
+skip; /* proc_mark_cont */
+skip; /* proc_mark_exit */
+skip; /* proc_mark_exec */
+skip; /* proc_mark_traced */
+skip; /* proc_mod_stopchild */
+
+simpleroutine proc_pid2task_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	task: task_t);
+
+simpleroutine proc_task2pid_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	pid: pid_t);
+
+simpleroutine proc_task2proc_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	proc: mach_port_poly_t);
+
+simpleroutine proc_proc2task_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	task: task_t);
+
+simpleroutine proc_pid2proc_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	proc: mach_port_poly_t);
+
+simpleroutine proc_getprocinfo_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	flags: int;
+	procinfo: procinfo_t, dealloc;
+	threadwaits: data_t, dealloc);
+
+simpleroutine proc_getprocargs_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	procargs: data_t, dealloc);
+
+simpleroutine proc_getprocenv_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	procenv: data_t, dealloc);
+
+skip; /* proc_make_login_coll */
+
+simpleroutine proc_getloginid_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	login_id: pid_t);
+
+simpleroutine proc_getloginpids_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	pids: pidarray_t, dealloc);
+
+skip; /* proc_setlogin */
+
+simpleroutine proc_getlogin_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	logname: string_t);
+
+skip; /* proc_setsid */
+
+simpleroutine proc_getsid_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	sid: pid_t);
+
+simpleroutine proc_getsessionpgids_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	pgidset: pidarray_t, dealloc);
+
+simpleroutine proc_getsessionpids_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	pidset: pidarray_t, dealloc);
+
+simpleroutine proc_getsidport_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	sessport: mach_port_send_t);
+
+skip; /* proc_setpgrp */
+
+simpleroutine proc_getpgrp_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	pgrp: pid_t);
+
+simpleroutine proc_getpgrppids_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	pidset: pidarray_t, dealloc);
+
+simpleroutine proc_get_tty_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	tty: mach_port_send_t);
+
+simpleroutine proc_getnports_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	nports: mach_msg_type_number_t);
+
+/*** Routines related to early server bootstrapping ***/
+
+skip; /* proc_set_init_task */
+skip; /* proc_mark_important */
+
+simpleroutine proc_is_important_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	essential: boolean_t);
+
+skip; /* proc_set_code */
+
+simpleroutine proc_get_code_reply (
+	reply_port: reply_port_t;
+	RETURN_CODE_ARG;
+	start_code: vm_address_t;
+	end_code: vm_address_t);
+
+skip; /* proc_make_task_namespace  */
+
+skip; /* proc_set_exe */
+skip; /* proc_get_exe */
+
+skip; /* proc_set_entry */
+skip; /* proc_get_entry */
+
+skip; /* proc_waitid */
+
+skip; /* proc_reauthenticate_reassign */
+skip; /* proc_reauthenticate_complete */

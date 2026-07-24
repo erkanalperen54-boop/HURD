@@ -1,0 +1,137 @@
+/* Special protocol for terminal driver
+   Copyright (C) 1991, 1993, 1994, 1999 Free Software Foundation, Inc.
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful, 
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+/* Written by Michael I. Bushnell.  */
+
+subsystem term 28000;
+
+#include <hurd/hurd_types.defs>
+
+#ifdef TERM_IMPORTS
+TERM_IMPORTS
+#endif
+
+INTR_INTERFACE
+
+type ctty_t = mach_port_copy_send_t
+#ifdef CTTY_INTRAN
+intran: CTTY_INTRAN
+#endif
+#ifdef CTTY_INTRAN_PAYLOAD
+intranpayload: CTTY_INTRAN_PAYLOAD
+#endif
+#ifdef CTTY_OUTTRAN
+outtran: CTTY_OUTTRAN
+#endif
+#ifdef CTTY_DESTRUCTOR
+destructor: CTTY_DESTRUCTOR
+#endif
+;
+
+/* Find out what the controlling terminal ID port is.  */
+routine term_getctty (
+	terminal: io_t;
+	out ctty: mach_port_send_t);
+
+/* 
+Return a controlling terminal port for this terminal.  This has the
+following effects:
+
+Certain input characters in certain modes will cause signals to be
+sent to foreground processes which have made this call.  The ctty ID
+will be used as the reference port.  Certain conditions will cause
+SIGHUP to be sent.  The foreground process group is the same as the
+owner defined by io_set_owner and io_get_owner.
+
+When background processes do certain operations on a port returned by
+term_become_ctty, the EBACKGROUND error may be returned.  This occurs
+for io_read always, io_write if the appropriate bit is set in the
+status, and various control operations always.  The vanilla port to
+the terminal can still be used to do these operations.
+
+A "foreground process" is one making a request over a port returned by
+term_become_ctty whose pid (as provided in the term_become_ctty call)
+matches the current owner (as set by io_mod_owner) or whose pgrp
+matches the owner in the same fashion.  A "background process" is one
+making a request over a port returned by term_become_ctty which is not
+a foreground process.  */ 
+routine term_open_ctty (
+	terminal: io_t;
+	pid: pid_t;
+	pgrp: pid_t;
+	out newtty: mach_port_send_t);
+
+/* This sets the name returned by future get_nodename calls.  This is
+   conventionally the name of a file which can be opened, resulting in
+   a clone of this port.  */
+routine term_set_nodename (
+	terminal: io_t;
+	name: string_t);
+
+/* Return the last value set with set_nodename.  */
+routine term_get_nodename (
+	terminal: io_t;
+	out name: string_t);
+
+/* Set the underlying file to be used for chown/chmod, etc. */
+routine term_set_filenode (
+	terminal: io_t;
+	filenode: file_t);
+
+/* Find out what the bottom half of this terminal is using.  */
+routine term_get_bottom_type (
+	terminal: io_t;
+	out ttype: int);
+
+/* Start running with the bottom half as a device port using the Mach
+   kernel device interface.  The old bottom half (if any) is
+   discarded.  */
+routine term_on_machdev (
+	terminal: io_t;
+	machdev: device_t);
+
+/* Start running with the bottom half as a hurd I/O port.  (It is
+   assumed that io_t is being served by a Hurd I/O server).  */
+routine term_on_hurddev (
+	terminal: io_t;
+	hurddev: io_t);
+
+/* Start running with the bottom half being an exported hurd I/O port.
+   This differs from term_on_hurddev in that with term_on_pty the
+   terminal driver will serve the port.  The returned port is a pty,
+   similar in operation to the entity of the same name in BSD.  */
+routine term_on_pty (
+	terminal: io_t;
+	out ptymaster: io_t);
+
+/* This call is made to the ctty port returned by term_getctty; it may
+   not be made to terminal I/O ports.  Return an unauthenticated I/O
+   port for the terminal opened as with flags FLAGS. */
+routine termctty_open_terminal (
+	ctty: ctty_t;
+	flags: int;
+	out terminal: mach_port_send_t);
+
+/* This call is only supported for PTY-based terminals.  For a slave,
+   it returns a filename which, when opened, would yield the master for
+   this terminal.  For a master, it returns a filename which, when
+   opened, would yield the slave for this terminal.  */
+routine term_get_peername (
+	terminal: io_t;
+	out name: string_t);

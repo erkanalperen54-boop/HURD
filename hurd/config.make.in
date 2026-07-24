@@ -1,0 +1,130 @@
+# @configure_input@
+
+package-version := @PACKAGE_VERSION@
+# What version of the Hurd is this?  For compatibility (libraries' SONAMEs),
+# hard-code this to 0.3 instead of coupling with PACKAGE_VERSION.
+hurd-version := 0.3
+
+# Machine architecture.
+machine = @host_cpu@
+asm_syntax = @asm_syntax@
+
+# Build options.
+build-profiled = @enable_profile@
+build-static = @enable_static_progs@
+boot-store-types = @boot_store_types@
+
+# Prefix prepended to names of machine-independent installed files.
+prefix = @prefix@
+# Prefix prepended to names of machine-dependent installed files.
+exec_prefix = @exec_prefix@
+
+# Directories where things get installed.
+hurddir = ${exec_prefix}/hurd
+libdir = @libdir@
+bindir = @bindir@
+sbindir = @sbindir@
+includedir = @includedir@
+libexecdir = @libexecdir@
+bootdir = ${exec_prefix}/boot
+infodir = @infodir@
+sysconfdir = @sysconfdir@
+localstatedir = @localstatedir@
+sharedstatedir = @sharedstatedir@
+datadir = @datadir@
+datarootdir = @datarootdir@
+
+# All of those directories together:
+installationdirlist = $(hurddir) $(libdir) $(bindir) $(sbindir) \
+	$(includedir) $(libexecdir) $(bootdir) $(infodir) $(sysconfdir) \
+	$(localstatedir) $(sharedstatedir)
+
+
+# How to run compilation tools.
+CC = @CC@
+CPP = $(CC) -E -x c # We need this option when input file names are not *.c.
+LD = @LD@
+OBJCOPY = @OBJCOPY@
+AR = @AR@
+RANLIB = @RANLIB@
+MIG = @MIG@
+MIGCOM = $(MIG) -cc cat - /dev/null
+AWK = @AWK@
+SED = @SED@
+
+# Compilation flags.  Append these to the definitions already made by
+# the specific Makefile.
+CPPFLAGS += @CPPFLAGS@ @DEFS@
+CFLAGS += @CFLAGS@
+LDFLAGS += @LDFLAGS@
+
+gnu89-inline-CFLAGS = @libc_cv_gnu89_inline@
+
+# How to link against Parted libraries, if at all.
+PARTED_LIBS = @PARTED_LIBS@
+
+# How to compile and link against ncursesw.
+LIBNCURSESW = @LIBNCURSESW@
+NCURSESW_INCLUDE = @NCURSESW_INCLUDE@
+
+# How to compile and link against xkbcommon.
+HAVE_XKBCOMMON = @have_xkbcommon@
+XKBCOMMON_CFLAGS = @xkbcommon_CFLAGS@
+XKBCOMMON_LIBS = @xkbcommon_LIBS@
+
+# How to compile and link against libdaemon.
+libdaemon_CFLAGS = @libdaemon_CFLAGS@
+libdaemon_LIBS = @libdaemon_LIBS@
+
+# How to compile and link against libbz2.
+HAVE_LIBBZ2 = @HAVE_LIBBZ2@
+
+# How to compile and link against libz.
+HAVE_LIBZ = @HAVE_LIBZ@
+
+# How to compile and link against libblkid.
+libblkid_CFLAGS = @libblkid_CFLAGS@
+libblkid_LIBS = @libblkid_LIBS@
+
+# Whether Sun RPC support is available.
+HAVE_SUN_RPC = @HAVE_SUN_RPC@
+
+# How to compile and link against libtirpc.
+libtirpc_CFLAGS = @libtirpc_CFLAGS@
+libtirpc_LIBS = @libtirpc_LIBS@
+
+# Whether we found libcrypt.
+HAVE_LIBCRYPT = @HAVE_LIBCRYPT@
+
+# Whether we found libgcrypt.
+HAVE_LIBGCRYPT = @HAVE_LIBGCRYPT@
+
+# Whether we found liblwip.
+HAVE_LIBLWIP = @HAVE_LIBLWIP@
+
+# Whether we found librump.
+HAVE_LIBRUMP = @HAVE_LIBRUMP@
+HAVE_LIBRUMP_VFSNOFIFO = @HAVE_LIBRUMP_VFSNOFIFO@
+
+# How to compile and link against liblwip.
+liblwip_CFLAGS = @liblwip_CFLAGS@
+liblwip_LIBS = @liblwip_LIBS@
+
+# Whether we found libpciaccess.
+HAVE_LIBPCIACCESS = @HAVE_LIBPCIACCESS@
+
+# How to compile and link against libpciaccess.
+libpciaccess_CFLAGS = @libpciaccess_CFLAGS@
+libpciaccess_LIBS = @libpciaccess_LIBS@
+
+# Whether we found libacpica.
+HAVE_LIBACPICA = @HAVE_LIBACPICA@
+
+# How to compile and link against libacpica.
+libacpica_CFLAGS = @libacpica_CFLAGS@
+libacpica_LIBS = @libacpica_LIBS@
+
+# Installation tools.
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@

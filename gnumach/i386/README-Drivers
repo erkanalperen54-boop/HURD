@@ -1,0 +1,122 @@
+-*- text -*-
+
+Here some i386 specific details of the device drivers are explained.
+
+Each driver is followed by one or more triplets of three numbers.  These
+triplets specify combinations of I/O address, spl, and, pic that are believed
+to work.
+
+Then comes the name of the device to users.  `%d' is a unit number.
+
+
+** Table
+
+*** Serial devices and similar equivalents
+
+PC com ports (always enabled)
+	0x3f8,2f8,3e8
+	com%d
+
+Parallel port
+	lpr%d
+
+System Console (always enabled)
+	(indirect name for kd or first com line)
+	console
+
+PC keyboard/display (always enabled)
+	kd
+
+
+*** Special devices
+
+Mappable time device (always enabled)
+	time
+
+Mouse interface to PC (always enabled)
+	(Piggy backs horribly on COM devices)
+	mouse%d
+
+X Window System interface to keyboard (always enabled)
+	kbd%d
+
+Interface to setting up IO port access for users (always enabled)
+	iopl%d
+
+
+*** Disk controllers (except for SCSI)
+
+PC floppy
+	0x3f0, 370
+	fd%d
+
+
+*** Ethernet controllers
+These all show up as `eth%d' except the atp device.
+
+NE2000/NE1000 ISA (ne, ne1000, ne2000)
+	0x300,280,320,340,360
+
+3Com 503 (3c503) / Etherlink II
+	0x300,310,330,350,250,280,2a0,2e0
+
+WD80x3
+	0x300,280,380,240
+
+3COM 501 (3c501) / Etherlink I
+	0x280,300
+
+SMC Ultra
+	0x200,220,240,280,300,340,380
+
+HP PCLAN+ (27247B and 27252A)
+	0x200,240,280,2c0,300,320,340
+
+HP PCLAN (27245 and other 27xxx series)
+	0x300,320,340,280,2c0,200,240
+
+Seeq8005
+	0x300,320,340,360
+
+Cabletron E21xx
+	0x300,280,380,220
+
+AT1700 (Fujitsu 86965)
+	0x260,280,2a0,240,340,320,380,300
+
+ICL EtherTeam 16i/32 (eth16i, eth32)
+	0x260,280,2a0,240,340,320,380,300 (16i)
+
+EtherExpress 16
+	0x300,270,320,340
+
+EtherExpressPro
+	0x200,240,280,2c0,300,320,340,360
+
+AT&T WaveLAN & DEC RoamAbout DS
+	0x390
+
+3Com 507 (3c507, el16)
+	0x300,320,340,280
+
+3Com 505 (3c505, elplus)
+	0x300,280,310
+
+D-Link DE-600
+	0x378
+
+D-Link DE-620
+	0x378
+
+Schneider & Koch G16
+	0x100,180,208,220,288,320,328,390
+
+NI5210
+	0x300,280,360,320,340
+
+NI6510
+	0x300/320/340/360
+
+AT-LAN-TEC/RealTek pocket adaptor
+	0x378,278,3bc
+	atp%d

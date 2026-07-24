@@ -1,0 +1,121 @@
+/* -*- C -*-
+   Version of <mach/default_pager.defs> modified for Hurd implementation.
+*/
+/*
+ * Mach Operating System
+ * Copyright (c) 1991,1990,1989 Carnegie Mellon University
+ * All Rights Reserved.
+ *
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation is hereby granted, provided that both the copyright
+ * notice and this permission notice appear in all copies of the
+ * software, derivative works or modified versions, and any portions
+ * thereof, and that both notices appear in supporting documentation.
+ *
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+ * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+ * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+ *
+ * Carnegie Mellon requests users of this software to return to
+ *
+ *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+ *  School of Computer Science
+ *  Carnegie Mellon University
+ *  Pittsburgh PA 15213-3890
+ *
+ * any improvements or extensions that they make and grant Carnegie Mellon
+ * the rights to redistribute these changes.
+ */
+
+subsystem default_pager 2275;
+
+#include <hurd/hurd_types.defs>	/* For `MACH_PAYLOAD_TO_PORT'.  */
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+#include <mach/default_pager_types.defs>
+#include <device/device_types.defs>
+
+import <hurd/default_pager_types.h>; /* XXX */
+
+#ifdef	DEFAULT_PAGER_IMPORTS
+DEFAULT_PAGER_IMPORTS
+#endif
+
+routine	default_pager_object_create(
+		default_pager		: mach_port_t;
+	out	memory_object		: memory_object_t =
+			MACH_MSG_TYPE_PORT_SEND;
+		object_size		: vm_size_t);
+
+routine default_pager_info(
+		default_pager		: mach_port_t;
+	out	info			: default_pager_info_t);
+
+routine default_pager_objects(
+		default_pager		: mach_port_t;
+	out	objects			: default_pager_object_array_t,
+			CountInOut, Dealloc;
+	out	ports			: mach_port_array_t =
+			array[] of mach_port_move_send_t,
+			CountInOut, Dealloc);
+
+routine default_pager_object_pages(
+		default_pager		: mach_port_t;
+		memory_object		: memory_object_name_t;
+	out	pages			: default_pager_page_array_t,
+			CountInOut, Dealloc);
+
+skip;				/* default_pager_paging_file */
+
+skip;				/* default_pager_register_fileserver */
+
+#ifdef __i386__
+/* Deprecated RPC to add or remove an area of paging storage.
+ * Was superseded in favor of default_pager_paging_storage_new which
+ * uses the correct type for default_pager_filename_t using c_string.
+ */
+routine default_pager_paging_storage(
+		default_pager		: mach_port_t;
+		device_port		: mach_port_t;
+		runs			: recnum_array_t =
+		       array[] of recnum_t;
+		name			: default_pager_filename_t;
+		add			: boolean_t);
+#else
+skip;  /* default_pager_paging_storage */
+#endif
+
+/* This call is made on a memory object returned by default_pager_object_create
+   to fix the object's maximum size.  Any references to pages beyond the limit
+   will fail.  */
+routine default_pager_object_set_size(
+		memory_object		: memory_object_t;
+       msgseqno seqno			: mach_port_seqno_t;
+		object_size_limit	: vm_size_t);
+
+routine default_pager_storage_info(
+		default_pager		: mach_port_t;
+	out	size			: vm_size_array_t =
+			array[] of vm_size_t, dealloc;
+	out	free			: vm_size_array_t =
+			array[] of vm_size_t, dealloc;
+	out	name			: data_t);
+
+type new_default_pager_filename_t = c_string[256]
+	ctype: default_pager_filename_t;
+
+/* Add or remove an area of paging storage, which is a subset of the
+   Mach device for which device_open returned DEVICE_PORT.  The area
+   consists of the concatenation of contiguous regions described by
+   RUNS.  Each even-numbered element of RUNS gives the starting record
+   number of a region whose length is given by the next odd-numbered
+   element.  NAME is used in any diagnostics the default pager prints
+   about device errors when paging.  When removing a paging area, NAME
+   and RUNS must match exactly.  */
+routine default_pager_paging_storage_new(
+		default_pager		: mach_port_t;
+		device_port		: mach_port_t;
+		runs			: recnum_array_t =
+		       array[] of recnum_t;
+		name			: new_default_pager_filename_t;
+		add			: boolean_t);

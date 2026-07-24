@@ -1,0 +1,134 @@
+on:
+  push:
+    branches:
+      - 'master'
+      - 'ci-*'
+
+jobs:
+  i386:
+    runs-on: self
+    strategy:
+      matrix:
+        platform: [
+          "--disable-apic --disable-pae --enable-ncpus=1",
+          "--disable-apic --enable-pae --enable-ncpus=1",
+          "--enable-apic --disable-pae --enable-ncpus=1",
+          "--enable-apic --enable-pae --enable-ncpus=1",
+          "--enable-apic --disable-pae --enable-ncpus=8",
+          "--enable-apic --enable-pae --enable-ncpus=8",
+          "--enable-platform=xen --enable-pae --enable-ncpus=1"
+          #"--enable-platform=xen --enable-pae --enable-ncpus=8"
+        ]
+        kdb: ["--enable-kdb", "--disable-kdb"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: gnumach 32 bit
+        run: |
+          git clone -q --depth=1 --single-branch https://https.git.savannah.gnu.org/git/hurd/mig.git mig32
+          autoreconf -fi
+          mkdir gnu32
+          mkdir build32
+          cd build32
+          ../configure --prefix= --host=i686-gnu LD="x86_64-linux-gnu-ld -melf_i386" CC="x86_64-linux-gnu-gcc -m32" \
+                  --disable-linux-groups \
+                  ${{ matrix.platform }} \
+                  ${{ matrix.kdb }}
+          make DESTDIR=../gnu32 install-data
+          cd ..
+          cd mig32
+          autoreconf -fi
+          mkdir build32
+          cd build32
+          GNU=$(realpath ../../gnu32)
+          TARGET_CPPFLAGS=-I"$GNU"/include TARGET_CC="x86_64-linux-gnu-gcc -m32" TARGET_LD="x86_64-linux-gnu-ld -melf_i386" ../configure --prefix="$GNU" --target=i686-gnu
+          make all install
+          PATH=$PATH:$GNU/bin
+          cd ../..
+          cd build32
+          CCASFLAGS="-fdebug-prefix-map=$PWD=." CFLAGS="-ffile-prefix-map=$PWD=." \
+          ../configure --prefix= --host=i686-gnu \
+                  MIG=i686-gnu-mig LD="x86_64-linux-gnu-ld -melf_i386" CC="x86_64-linux-gnu-gcc -m32" \
+                  --disable-linux-groups \
+                  ${{ matrix.platform }} \
+                  ${{ matrix.kdb }}
+          make gnumach.gz
+          make VERBOSE=true check
+  x86_64:
+    runs-on: self
+    strategy:
+      matrix:
+        platform: [
+          "--disable-apic --enable-ncpus=1",
+          "--enable-apic --enable-ncpus=1",
+          "--enable-apic --enable-ncpus=8",
+          "--enable-platform=xen --enable-ncpus=1"
+          #"--enable-platform=xen --enable-ncpus=8"
+        ]
+        user32: ["--enable-user32", "--disable-user32"]
+        kdb: ["--enable-kdb", "--disable-kdb"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: gnumach 64 bit
+        run: |
+          git clone -q --depth=1 --single-branch https://https.git.savannah.gnu.org/git/hurd/mig.git
+          autoreconf -fi
+          if [ ${{ matrix.user32 }} == '--enable-user32' ]; then
+            USER_H=i686
+            USER_ELF=-melf_i386
+            USER_M32=-m32
+          else
+            USER_H=x86_64
+            USER_ELF=""
+            USER_M32=""
+          fi
+          mkdir gnu64
+          mkdir build64
+          cd build64
+          ../configure --prefix= --host=x86_64-gnu LD=x86_64-linux-gnu-ld CC=x86_64-linux-gnu-gcc \
+                  --disable-linux-groups \
+                  ${{ matrix.platform }} \
+                  ${{ matrix.user32 }} \
+                  ${{ matrix.kdb }}
+          make DESTDIR=../gnu64 install-data
+          cd ..
+          cd mig
+          autoreconf -fi
+          mkdir build64
+          cd build64
+          GNU=$(realpath ../../gnu64)
+          TARGET_CPPFLAGS=-I"$GNU"/include TARGET_CC=x86_64-linux-gnu-gcc ../configure --prefix="$GNU" --target=x86_64-gnu
+          make all install
+          cd ../..
+          if [ "$USER_H" == "i686" ]; then
+            # We need i386 headers to build mig 32bit
+            mkdir gnu32
+            mkdir build32
+            cd build32
+            ../configure --prefix= --host=i686-gnu LD="x86_64-linux-gnu-ld -melf_i386" CC="x86_64-linux-gnu-gcc -m32" \
+                    --disable-linux-groups \
+                    ${{ matrix.platform }} \
+                    ${{ matrix.kdb }}
+            make DESTDIR=../gnu32 install-data
+            cd ..
+            cd mig
+            mkdir build32
+            cd build32
+            GNU32=$(realpath ../../gnu32)
+            TARGET_CPPFLAGS=-I"$GNU32"/include TARGET_CC="x86_64-linux-gnu-gcc -m32" TARGET_LD="x86_64-linux-gnu-ld -melf_i386" ../configure --prefix="$GNU32" --target=i686-gnu
+            make all install
+            cd ../..
+          fi
+          PATH=$PATH:$GNU/bin:$GNU32/bin
+          cd build64
+          CCASFLAGS="-fdebug-prefix-map=$PWD=." CFLAGS="-ffile-prefix-map=$PWD=." \
+          ../configure --prefix= --host=x86_64-gnu \
+                  MIG=x86_64-gnu-mig LD=x86_64-linux-gnu-ld CC=x86_64-linux-gnu-gcc \
+                  USER_MIG=${USER_H}-gnu-mig USER_CC="x86_64-linux-gnu-gcc ${USER_M32}" USER_LD="x86_64-linux-gnu-ld ${USER_ELF}" USER_CPP="x86_64-linux-gnu-gcc ${USER_M32} -E" \
+                  --disable-linux-groups \
+                  ${{ matrix.platform }} \
+                  ${{ matrix.user32 }} \
+                  ${{ matrix.kdb }}
+          make gnumach.gz
+          make VERBOSE=true check

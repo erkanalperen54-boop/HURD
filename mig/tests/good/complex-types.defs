@@ -1,0 +1,51 @@
+/*
+   Copyright (C) 2016 Free Software Foundation, Inc.
+
+   This file is part of GNU MIG.
+
+   GNU MIG is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   GNU MIG is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GNU MIG.  If not, see <http://www.gnu.org/licenses/>.  */
+
+/* Tests complex types such as pointers, arrays and structs.  */
+subsystem types 0;
+
+import <stdint.h>;
+import "types.h";
+
+type byte = MACH_MSG_TYPE_BYTE;
+type pointer_t = ^array[] of MACH_MSG_TYPE_BYTE
+	ctype: vm_offset_t;
+
+type mach_port_t = MACH_MSG_TYPE_COPY_SEND;
+type mach_port_array_t = array[] of mach_port_t;
+type char_struct_t = struct[4] of char;
+type string_t = array[256] of char;
+
+type simple_struct_t = struct { byte a; };
+
+type complex_struct_x_t = struct { simple_struct_t a; simple_struct_t b; int c; };
+
+type complex_struct_y_t = struct { complex_struct_x_t a; byte b; };
+
+type complex_struct_z_t = struct { complex_struct_y_t a; int d; };
+
+routine callcomplex(port : mach_port_t;
+                  p : pointer_t;
+                  q : intptr_t;
+                  str : char_struct_t;
+                  strt : string_t;
+                  simple : simple_struct_t;
+                  x : complex_struct_x_t;
+                  y : complex_struct_y_t;
+                  z : complex_struct_z_t;
+                  out vec : mach_port_array_t);

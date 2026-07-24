@@ -1,0 +1,8 @@
+
+Make tar file.
+Test compilation.
+Update README, including version number.
+Update INSTALL, including version number.
+Update NEWS.
+Write release announcement.
+README and release announcement should mention list of platforms.

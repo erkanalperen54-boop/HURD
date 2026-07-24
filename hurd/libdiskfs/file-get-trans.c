@@ -1,0 +1,182 @@
+/* libdiskfs implementation of fs.defs: file_get_translator
+   Copyright (C) 1992,93,94,95,96,98,99,2002 Free Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. */
+
+#include <pthread.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <assert-backtrace.h>
+
+#include "diskfs.h"
+#include <mach.h>
+#include <hurd/hurd_types.h>
+#include <hurd/paths.h>
+#include "fs_S.h"
+
+/* Implement file_get_translator as described in <hurd/fs.defs>. */
+kern_return_t
+diskfs_S_file_get_translator (struct protid *cred,
+                              data_t *trans,
+                              mach_msg_type_number_t *translen)
+{
+  struct node *np;
+  error_t err = 0;
+
+  if (!cred)
+    return EOPNOTSUPP;
+
+  np = cred->po->np;
+
+  pthread_mutex_lock (&np->lock);
+
+  if (np->dn_stat.st_mode & S_IPTRANS)
+    {
+      char *string;
+      mach_msg_type_number_t len;
+      err = diskfs_get_translator (np, &string, &len);
+      if (!err)
+	{
+	  if (len > *translen)
+	    {
+	      *trans = mmap (0, len, PROT_READ|PROT_WRITE, MAP_ANON, 0, 0);
+	      if (*trans == MAP_FAILED)
+		{
+		  err = errno;
+		  free (string);
+		  goto out;
+		}
+	    }
+	  memcpy (*trans, string, len);
+	  *translen = len;
+	  free (string);
+	}
+    }
+  /* Check for short-circuited translators. */
+  else if (S_ISLNK (np->dn_stat.st_mode))
+    {
+      unsigned int len = sizeof _HURD_SYMLINK + np->dn_stat.st_size + 1;
+      mach_msg_type_number_t amt;
+      assert_backtrace (diskfs_shortcut_symlink);
+      if (len > *translen)
+	{
+	  *trans = mmap (0, len, PROT_READ|PROT_WRITE, MAP_ANON, 0, 0);
+	  if (*trans == MAP_FAILED)
+	    {
+	      err = errno;
+	      goto out;
+	    }
+	}
+      memcpy (*trans, _HURD_SYMLINK, sizeof _HURD_SYMLINK);
+
+      if (diskfs_read_symlink_hook)
+	err = (*diskfs_read_symlink_hook) (np,
+					     *trans + sizeof _HURD_SYMLINK);
+      if (!diskfs_read_symlink_hook || err == EINVAL)
+	{
+	  err = diskfs_node_rdwr (np, *trans + sizeof _HURD_SYMLINK,
+				    0, np->dn_stat.st_size, 0, cred, &amt);
+	  if (!err)
+	    assert_backtrace (amt == np->dn_stat.st_size);
+	}
+      if (!err)
+	{
+	  (*trans)[sizeof _HURD_SYMLINK + np->dn_stat.st_size] = '\0';
+	  *translen = len;
+	}
+      else if (len > *translen)
+	munmap (trans, len);
+    }
+  else if (S_ISCHR (np->dn_stat.st_mode) || S_ISBLK (np->dn_stat.st_mode))
+    {
+      char *buf;
+      unsigned int buflen;
+
+      if (S_ISCHR (np->dn_stat.st_mode))
+	assert_backtrace (diskfs_shortcut_chrdev);
+      else
+	assert_backtrace (diskfs_shortcut_blkdev);
+
+      buflen = asprintf (&buf, "%s%c%d%c%d",
+			 (S_ISCHR (np->dn_stat.st_mode)
+			  ? _HURD_CHRDEV
+			  : _HURD_BLKDEV),
+			 '\0', (int) ((np->dn_stat.st_rdev >> 8) & 0377),
+			 '\0', (int) ((np->dn_stat.st_rdev) & 0377));
+      buflen++;			/* terminating nul */
+
+      if (buflen > *translen)
+	{
+	  *trans = mmap (0, buflen, PROT_READ|PROT_WRITE, MAP_ANON, 0, 0);
+	  if (*trans == MAP_FAILED)
+	    {
+	      err = errno;
+	      free (buf);
+	      goto out;
+	    }
+	}
+      memcpy (*trans, buf, buflen);
+      free (buf);
+      *translen = buflen;
+      err = 0;
+    }
+  else if (S_ISFIFO (np->dn_stat.st_mode))
+    {
+      unsigned int len;
+
+      len = sizeof _HURD_FIFO;
+      if (len > *translen)
+	{
+	  *trans = mmap (0, len, PROT_READ|PROT_WRITE, MAP_ANON, 0, 0);
+	  if (*trans == MAP_FAILED)
+	    {
+	      err = errno;
+	      goto out;
+	    }
+	}
+      memcpy (*trans, _HURD_FIFO, sizeof _HURD_FIFO);
+      *translen = len;
+      err = 0;
+    }
+  else if (S_ISSOCK (np->dn_stat.st_mode))
+    {
+      unsigned int len;
+
+      len = sizeof _HURD_IFSOCK;
+      if (len > *translen)
+	{
+	  *trans = mmap (0, len, PROT_READ|PROT_WRITE, MAP_ANON, 0, 0);
+	  if (*trans == MAP_FAILED)
+	    {
+	      err = errno;
+	      goto out;
+	    }
+	}
+      memcpy (*trans, _HURD_IFSOCK, sizeof _HURD_IFSOCK);
+      *translen = len;
+      err = 0;
+    }
+  else
+    err = EINVAL;
+
+out:
+  pthread_mutex_unlock (&np->lock);
+
+  return err;
+}

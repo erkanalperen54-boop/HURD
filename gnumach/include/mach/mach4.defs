@@ -1,0 +1,131 @@
+/* 
+ * Mach Operating System
+ * Copyright (c) 1994,1993,1992 Carnegie Mellon University
+ * All Rights Reserved.
+ * 
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation is hereby granted, provided that both the copyright
+ * notice and this permission notice appear in all copies of the
+ * software, derivative works or modified versions, and any portions
+ * thereof, and that both notices appear in supporting documentation.
+ * 
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+ * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+ * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+ * 
+ * Carnegie Mellon requests users of this software to return to
+ * 
+ *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+ *  School of Computer Science
+ *  Carnegie Mellon University
+ *  Pittsburgh PA 15213-3890
+ * 
+ * any improvements or extensions that they make and grant Carnegie Mellon 
+ * the rights to redistribute these changes.
+ */
+/*
+ *	Matchmaker definitions file for Mach4 kernel interface.
+ */
+
+subsystem
+#if	KERNEL_SERVER
+	  KernelServer
+#endif	/* KERNEL_SERVER */
+#if	KERNEL_USER
+	  KernelUser
+#endif	/* KERNEL_USER */
+		       mach4 4000;
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+
+#ifdef MACH_PCSAMPLE
+type sampled_pc_flavor_t = unsigned;
+
+type sampled_pc_t 	= struct {
+   rpc_vm_offset_t id;
+   rpc_vm_offset_t pc;
+   sampled_pc_flavor_t sampletype;
+};
+
+type sampled_pc_array_t = array[*:512] of sampled_pc_t;
+type sampled_pc_seqno_t = unsigned;
+
+routine task_enable_pc_sampling(
+		host          : task_t;
+		out tick      : int;     /* sample frequency in usecs	*/
+		flavor	      : sampled_pc_flavor_t );
+
+routine task_disable_pc_sampling(
+		host          : task_t;
+		out samplecnt : int);
+				 
+routine task_get_sampled_pcs(
+		host	        : task_t;
+		inout seqno     : sampled_pc_seqno_t;
+		out sampled_pcs : sampled_pc_array_t);
+
+routine thread_enable_pc_sampling(
+		host          : thread_t;
+		out tick      : int;     /* sample frequency in	usecs*/
+		flavor	      : sampled_pc_flavor_t );		
+
+routine thread_disable_pc_sampling(
+		host          : thread_t;
+		out samplecnt : int);
+				 
+routine thread_get_sampled_pcs(
+		host	        : thread_t;
+		inout seqno     : sampled_pc_seqno_t;
+		out sampled_pcs : sampled_pc_array_t);
+
+
+skip	/* pc_sampling reserved 1*/;
+skip	/* pc_sampling reserved 2*/;
+skip	/* pc_sampling reserved 3*/;
+skip	/* pc_sampling reserved 4*/;
+
+#else
+
+skip;	/* task_enable_pc_sampling */
+skip;	/* task_disable_pc_sampling */
+skip;	/* task_get_sampled_pcs */
+skip;	/* thread_enable_pc_sampling */
+skip;	/* thread_disable_pc_sampling */
+skip;	/* thread_get_sampled_pcs */
+
+skip	/* pc_sampling reserved 1*/;
+skip	/* pc_sampling reserved 2*/;
+skip	/* pc_sampling reserved 3*/;
+skip	/* pc_sampling reserved 4*/;
+
+#endif
+
+
+/* Create a new proxy memory object from [START;START+LEN) in the
+   given memory object OBJECT at OFFSET in the new object with the maximum
+   protection MAX_PROTECTION and return it in *PORT.  */
+type vm_offset_array_t = array[*:1024] of vm_offset_t;
+type vm_size_array_t = array[*:1024] of vm_size_t;
+type rpc_vm_size_array_t = array[*:1024] of rpc_vm_size_t;
+type rpc_vm_offset_array_t = array[*:1024] of rpc_vm_offset_t;
+routine memory_object_create_proxy(
+		task		: ipc_space_t;
+		max_protection	: vm_prot_t;
+		object		: memory_object_array_t =
+				  array[*:1024] of mach_port_send_t;
+		offset		: rpc_vm_offset_array_t;
+		start		: rpc_vm_offset_array_t;
+		len		: rpc_vm_size_array_t;
+		out proxy	: mach_port_t);
+
+/* Gets a proxy to the region that ADDRESS belongs to, starting at the region
+   start, with MAX_PROTECTION and LEN limited by the region ones, and returns
+   it in *PORT.  */
+routine vm_region_create_proxy(
+		task		: task_t;
+		address		: vm_address_t;
+		max_protection	: vm_prot_t;
+		len		: vm_size_t;
+		out proxy	: mach_port_t);

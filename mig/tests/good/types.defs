@@ -1,0 +1,73 @@
+/*
+   Copyright (C) 2016 Free Software Foundation, Inc.
+
+   This file is part of GNU MIG.
+
+   GNU MIG is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   GNU MIG is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GNU MIG.  If not, see <http://www.gnu.org/licenses/>.  */
+
+/* Tests simple types and port types.  */
+subsystem types 0;
+
+import <stdint.h>;
+import "types.h";
+#include "../base_types.defs"
+
+type int16_t = MACH_MSG_TYPE_INTEGER_16;
+type boolean_t = MACH_MSG_TYPE_BOOLEAN;
+type uint16_t = MACH_MSG_TYPE_INTEGER_16;
+type uint32_t = MACH_MSG_TYPE_INTEGER_32;
+type uint64_t = MACH_MSG_TYPE_INTEGER_64;
+type move_receive_t = MACH_MSG_TYPE_MOVE_RECEIVE
+        ctype: mach_port_t;
+type copy_send_t = MACH_MSG_TYPE_COPY_SEND
+	ctype: mach_port_t;
+type move_send_t = MACH_MSG_TYPE_MOVE_SEND
+        ctype: mach_port_t;
+type move_send_once_t = MACH_MSG_TYPE_MOVE_SEND_ONCE
+        ctype : mach_port_t;
+type port_send_t = MACH_MSG_TYPE_PORT_SEND
+        ctype : mach_port_t;
+
+type another_int = int
+        cusertype: int32_t
+        cservertype: uint32_t;
+
+type trans_int = int
+        ctype: int
+        intran: int8_t int_to_int8(int)
+        outtran: int int8_to_int(int8_t);
+
+routine alltypes(port : mach_port_t;
+                 c : char; s1 : int16_t; s2 : short; i : int;
+                 i32 : int32_t; i64 : int64_t; b : boolean_t;
+                 ui16 : uint16_t; ui32 : uint32_t; ui64 : uint64_t);
+
+/* This should fail.  */
+/* routine receive(port : move_receive_t); */
+
+routine movereceive(port : mach_port_t; copy : move_receive_t);
+
+routine movesend(port : mach_port_t; copy : move_send_t);
+
+routine movesendonce(port : mach_port_t; move : move_send_once_t);
+
+routine copysend(port : mach_port_t; receive : copy_send_t);
+
+routine portsend(port : mach_port_t; send : port_send_t);
+
+routine another(port : mach_port_t;
+                n : another_int);
+
+routine dotrans(port : mach_port_t;
+                inout n : trans_int);

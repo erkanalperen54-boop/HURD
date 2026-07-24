@@ -1,0 +1,182 @@
+/* Definitions for generic IO interface
+   Copyright (C) 1991,93,94,95,2000,01,02 Free Software Foundation, Inc.
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+subsystem io_reply 21100;  /* much mach io.defs + 100 */
+
+/* These functions are server reply stubs for the functions in io.defs;
+   all the comments there apply exactly to here. */
+
+#include <hurd/hurd_types.defs>
+
+#ifdef IO_IMPORTS
+IO_IMPORTS
+#endif
+
+type reply_port_t = polymorphic | MACH_MSG_TYPE_MAKE_SEND_ONCE
+	ctype: mach_port_t;
+
+simpleroutine io_write_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	amount: vm_size_t);
+
+simpleroutine io_read_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	data: data_t);
+
+simpleroutine io_seek_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	newp: loff_t);
+
+simpleroutine io_readable_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	amount: vm_size_t);
+
+simpleroutine io_set_all_openmodes_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_get_openmodes_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	bits: int);
+
+simpleroutine io_set_some_openmodes_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_clear_some_openmodes_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_async_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	async_id_port: mach_port_send_t);
+
+simpleroutine io_mod_owner_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_get_owner_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	owner: pid_t);
+
+simpleroutine io_get_icky_async_id_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	id_port: mach_port_send_t);
+
+simpleroutine io_select_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	select_result: int);
+
+simpleroutine io_stat_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	stat_info: io_statbuf_t);
+
+skip;  /* io_reauthenticate has no reply */
+
+simpleroutine io_restrict_auth_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	new_object: mach_port_send_t);
+
+simpleroutine io_duplicate_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	newport: mach_port_send_t);
+
+simpleroutine io_server_version_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	server_name: string_t;
+	server_major_version: int;
+	server_minor_version: int;
+	server_edit_level: int);
+
+simpleroutine io_map_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	rdobject: mach_port_send_t;
+	wrobject: mach_port_send_t);
+
+simpleroutine io_map_cntl_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	memobj: mach_port_send_t);
+
+simpleroutine io_get_conch_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_release_conch_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_eofnotify_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_prenotify_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_postnotify_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_readnotify_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_readsleep_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_sigio_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_pathconf_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	value: int);
+
+simpleroutine io_identity_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	idport: mach_port_send_t;
+	fsidport: mach_port_send_t;
+	fileno: ino64_t);
+
+simpleroutine io_revoke_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG);
+
+simpleroutine io_select_timeout_reply (
+	reply: reply_port_t;
+	RETURN_CODE_ARG;
+	select_result: int);

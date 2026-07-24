@@ -1,0 +1,61 @@
+Order for building binary distribution:
+
+1) Make tools on build machine
+*   Build/install libc and header files from mach and hurd.
+*   Build/install gcc (just LANGUAGES=c)
+*   Build/install binutils.
+
+2) Make everything for release; install both on build machine and dist dir.
+*   Build/install binutils again (now using new as and ld).
+*   Build/install gcc again.  (only one stage necessary).
+*   Build/install libc again.
+*   Build/install everything else.
+
+See `release-steps' for Hurd source release steps.
+
+Checklist for binary image filesystems
+
+*   Symlinks in /bin; esp. sh, awk, more, cc.
+*   Symlink /lib/libtermcap.a -> /lib/libncurses.a, termcap_g.a, 
+	curses_g.a, curses.a.
+*   Symlink /lib/ld.so -> /lib/ld.so.1.
+*   Symlink . -> /usr.
+*   Make sure directories exist: /tmp, /var/run.
+*   Touch /var/log/wtmp.
+*   Check all symlinks to make sure they don't reference /gd4.
+*   Don't use absolute symlinks--make them all relative.
+*   Build some static fileutils: ls, ln, cp, mv, chmod.
+*   Make damn sure that we are only distributing the md5 libcrypt.
+*   Make sure /include/obstack.h is from libc and not binutils.
+*   Make sure there is no /include/i386.
+*   Make sure there is no /i486-gnu.
+*   Make sure we are using Hurd versions of su and uptime, not sh-utils.
+*   Make sure we are using Hurd fsck, not e2fs.
+*   Make install-dist from release dir.
+*   Make sure there is only a stubby resolv.conf in the distribution.
+*   Make sure /etc/fstab has no active members
+*   Make sure nethack is clean
+*   Make sure localtime is Factory
+*   Source code for Hurd and libc must be released.
+*   Remove .stamp files from binary tree.
+*   Chown everything root.wheel, mode 755/644.
+*   /tmp is 1777.
+*   Chown /games games.games.
+*   Check permissions on set[gu]id files in binary tree.
+       (login, su, addauth, setauth, ids, ps, w, vmstat, vminfo, rsh, rlogin,
+        games/lib/nethack/nethack)
+*   Check each directory for bogus cruft files.
+*   Especially delete .bash_history, .gnunfs*, and .stamp files, *~, *.rej
+*   Verify installation on bare machine.
+*   Make sure everything listed in SOURCES is on prep.
+*   Install release
+*   Post announcement
+
+
+FSF Hurd machines need in addition to the INSTALL-binary installation:
+
+*   our NFS translators
+*   our kernel
+*   sendmail.cf, /etc/aliases
+*   /home/* symlinks
+*   /etc/syslog.conf

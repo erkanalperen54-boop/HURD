@@ -1,0 +1,59 @@
+/*
+   Copyright (C) 2016 Free Software Foundation, Inc.
+
+   This file is part of GNU MIG.
+
+   GNU MIG is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   GNU MIG is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GNU MIG.  If not, see <http://www.gnu.org/licenses/>.  */
+
+/* Tests arguments with different directions.  */
+subsystem directions 100;
+
+type mach_port_t = MACH_MSG_TYPE_COPY_SEND;
+type mach_port_array_t = array[] of mach_port_t;
+
+routine callinout(port : mach_port_t;
+                  in n : int;
+                  out result : int);
+
+routine multiplein(port : mach_port_t;
+                   in n1 : int;
+                   in n2 : int;
+                   in n3 : int;
+                   out result : int);
+
+routine multipleout(port : mach_port_t;
+                    in n : int;
+                    out result1 : int;
+                    out result2 : int;
+                    out result3 : int);
+
+routine serverreplyport(port : mach_port_t;
+                        sreplyport server_port : mach_port_t;
+                        in n : int;
+                        out result : int);
+
+routine userreplyport(port : mach_port_t;
+                      ureplyport user_port : mach_port_t;
+                      out result : int);
+
+routine myrequestport(requestport port : mach_port_t;
+                      new_port : mach_port_t);
+
+routine singleinandout(port : mach_port_t;
+                       inout n : int);
+
+routine multipleinandout(port : mach_port_t;
+                         inout n1 : int;
+                         inout n2 : int;
+                         out result : int);

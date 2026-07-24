@@ -1,0 +1,100 @@
+/*
+   Copyright (C) 2021 Free Software Foundation, Inc.
+
+   This file is part of the GNU Hurd.
+
+   The GNU Hurd is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   The GNU Hurd is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with the GNU Hurd.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/* Implementation of ACPI operations */
+
+#include <acpi_S.h>
+
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/io.h>
+#include <idvec.h>
+
+#include <acpi/acpi_init.h>
+#include "acpifs.h"
+
+/* PIIX3 chipset returns IRQ 9 for all ACPI irq requests
+ * but IDE is actually wired to legacy irqs 14 and 15.
+ * To avoid needing pci access in acpi, we can consider
+ * all mappings to 9 to be invalid irqs and use
+ * bios defaults for these requests instead. */
+#define WRONG_IRQ 9
+
+static error_t
+check_permissions (struct protid *master, int flags)
+{
+  struct node *node;
+  struct acpifs_dirent *e;
+
+  node = master->po->np;
+  e = node->nn->ln;
+
+  /* Check whether the user has permissions to access this node */
+  return entry_check_perms (master->user, e, flags);
+}
+
+kern_return_t
+S_acpi_sleep (struct protid *master,
+	      int sleep_state)
+{
+  error_t err;
+
+  if (!master)
+    return EOPNOTSUPP;
+
+  if (!master->user)
+    return EOPNOTSUPP;
+
+  if (!idvec_contains (master->user->uids, 0))
+    return EOPNOTSUPP;
+
+  /* Perform sleep */
+  acpi_enter_sleep(sleep_state);
+
+  /* Never reached */
+  return err;
+}
+
+kern_return_t
+S_acpi_get_pci_irq (struct protid *master,
+		    int bus,
+		    int dev,
+		    int func,
+		    int *irq)
+{
+  error_t err;
+  int ret;
+
+  if (!master)
+    return EOPNOTSUPP;
+
+  err = check_permissions (master, O_READ);
+  if (err)
+    return err;
+
+  ret = acpi_get_irq_number(bus, dev, func);
+  if (ret == WRONG_IRQ)
+    return EOPNOTSUPP;
+  if (ret < 0)
+    return EIO;
+
+  *irq = ret;
+  return 0;
+}

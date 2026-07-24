@@ -1,0 +1,298 @@
+/*
+ * Mach Operating System
+ * Copyright (c) 1994-1988 Carnegie Mellon University.
+ * Copyright (c) 1993,1994 The University of Utah and
+ * the Computer Systems Laboratory (CSL).
+ * All rights reserved.
+ *
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation is hereby granted, provided that both the copyright
+ * notice and this permission notice appear in all copies of the
+ * software, derivative works or modified versions, and any portions
+ * thereof, and that both notices appear in supporting documentation.
+ *
+ * CARNEGIE MELLON, THE UNIVERSITY OF UTAH AND CSL ALLOW FREE USE OF
+ * THIS SOFTWARE IN ITS "AS IS" CONDITION, AND DISCLAIM ANY LIABILITY
+ * OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF
+ * THIS SOFTWARE.
+ *
+ * Carnegie Mellon requests users of this software to return to
+ *
+ *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+ *  School of Computer Science
+ *  Carnegie Mellon University
+ *  Pittsburgh PA 15213-3890
+ *
+ * any improvements or extensions that they make and grant Carnegie Mellon
+ * the rights to redistribute these changes.
+ */
+/*
+ *	Mach kernel interface type declarations
+ */
+
+#ifndef	_MACH_MACH_TYPES_DEFS_
+#define _MACH_MACH_TYPES_DEFS_
+
+/*
+ *	For KernelServer and KernelUser interfaces, Mig will
+ *	automagically use ipc_port_t instead of mach_port_t
+ *	on the kernel side of the interface.  For example,
+ *	convert_task_to_port really returns ipc_port_t.
+ *	Doing this in Mig saves many explicit conditional
+ *	cusertype/cservertype declarations.
+ *
+ *	Mig doesn't translate the components of an array.
+ *	For example, Mig won't use the thread_t translations
+ *	to translate a thread_array_t argument.
+ */
+
+#include <mach/std_types.defs>
+#if	KERNEL_SERVER
+#endif	/* KERNEL_SERVER */
+
+#ifdef USERPREFIX
+userprefix USERPREFIX;
+#endif
+
+#ifdef SERVERPREFIX
+serverprefix SERVERPREFIX;
+#endif
+
+type mach_port_status_t = struct {
+   mach_port_name_t	mps_pset;	/* containing port set */
+   mach_port_seqno_t	mps_seqno;	/* sequence number */
+   mach_port_mscount_t	mps_mscount;	/* make-send count */
+   mach_port_msgcount_t	mps_qlimit;	/* queue limit */
+   mach_port_msgcount_t	mps_msgcount;	/* number in the queue */
+   mach_port_rights_t mps_sorights;	/* how many send-once rights */
+   boolean_t	mps_srights;	/* do send rights exist? */
+   boolean_t	mps_pdrequest;	/* port-deleted requested? */
+   boolean_t	mps_nsrequest;	/* no-senders requested? */
+};
+
+type task_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: task_t convert_port_to_task(mach_port_t)
+		outtran: mach_port_t convert_task_to_port(task_t)
+		destructor: task_deallocate(task_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type thread_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: thread_t convert_port_to_thread(mach_port_t)
+		outtran: mach_port_t convert_thread_to_port(thread_t)
+		destructor: thread_deallocate(thread_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type thread_state_t		= array[*:1024] of natural_t;
+
+type task_array_t = ^array[] of task_t;
+type thread_array_t = ^array[] of thread_t;
+
+type vm_task_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: vm_map_t convert_port_to_map(mach_port_t)
+		destructor: vm_map_deallocate(vm_map_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type ipc_space_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: ipc_space_t convert_port_to_space(mach_port_t)
+		destructor: space_deallocate(ipc_space_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+#if defined(KERNEL) && defined(USER32)
+type rpc_uintptr_t = uint32_t;
+type rpc_vm_size_t = uint32_t;
+#else /* KERNEL and USER32 */
+type rpc_uintptr_t = uintptr_t;
+type rpc_vm_size_t = uintptr_t;
+#endif /* KERNEL_SERVER and USER32 */
+
+type rpc_vm_offset_t = rpc_vm_size_t;
+
+type vm_address_t = rpc_vm_size_t
+#if defined(KERNEL_SERVER)
+    intran: vm_address_t convert_vm_from_user(rpc_vm_address_t)
+    outtran: rpc_vm_address_t convert_vm_to_user(vm_address_t)
+#elif defined(KERNEL_USER)
+    ctype: rpc_vm_address_t
+#endif
+    ;
+type vm_offset_t = rpc_vm_offset_t
+#if defined(KERNEL_SERVER)
+    intran: vm_offset_t convert_vm_from_user(rpc_vm_offset_t)
+    outtran: rpc_vm_offset_t convert_vm_to_user(vm_offset_t)
+#elif defined(KERNEL_USER)
+    ctype: rpc_vm_offset_t
+#endif
+    ;
+type vm_size_t = rpc_vm_size_t
+#if defined(KERNEL_SERVER)
+    intran: vm_size_t convert_vm_from_user(rpc_vm_size_t)
+    outtran: rpc_vm_size_t convert_vm_to_user(vm_size_t)
+#elif defined(KERNEL_USER)
+    ctype: rpc_vm_size_t
+#endif
+;
+type vm_prot_t = int;
+type vm_inherit_t = int;
+type vm_statistics_data_t = struct[13] of integer_t;
+type vm_machine_attribute_t = int;
+type vm_machine_attribute_val_t = int;
+type vm_sync_t = int;
+
+type thread_info_t		= array[*:1024] of integer_t;
+
+type task_info_t		= array[*:1024] of integer_t;
+
+type memory_object_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: ipc_port_t null_conversion(mach_port_t)
+#else	/* KERNEL_SERVER */
+#ifdef	MEMORY_OBJECT_INTRAN
+		intran: MEMORY_OBJECT_INTRAN
+#endif
+#ifdef	MEMORY_OBJECT_INTRAN_PAYLOAD
+		intranpayload: MEMORY_OBJECT_INTRAN_PAYLOAD
+#endif
+#ifdef	MEMORY_OBJECT_OUTTRAN
+		outtran: MEMORY_OBJECT_OUTTRAN
+#endif
+#ifdef	MEMORY_OBJECT_DESTRUCTOR
+		destructor: MEMORY_OBJECT_DESTRUCTOR
+#endif
+#endif	/* KERNEL_SERVER */
+		;
+
+type memory_object_control_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: vm_object_t vm_object_lookup(mach_port_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type memory_object_name_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: vm_object_t vm_object_lookup_name(mach_port_t)
+		destructor: vm_object_deallocate(vm_object_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type memory_object_copy_strategy_t = int;
+type memory_object_return_t = int;
+
+type host_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: host_t convert_port_to_host(mach_port_t)
+		outtran: mach_port_t convert_host_to_port(host_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type host_priv_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: host_t convert_port_to_host_priv(mach_port_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type host_info_t 			= array[*:1024] of integer_t;
+
+type processor_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: processor_t convert_port_to_processor(mach_port_t)
+		outtran: mach_port_t convert_processor_to_port(processor_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type processor_array_t 		= ^array[] of processor_t;
+type processor_info_t		= array[*:1024] of integer_t;
+
+type processor_name_t = mach_port_t
+                ctype: mach_port_t
+#if     KERNEL_SERVER
+                intran: processor_t convert_port_to_processor_name(mach_port_t)
+                outtran: mach_port_t convert_processor_name_to_port(processor_t)
+#endif  /* KERNEL_SERVER */
+                ;
+
+type processor_name_array_t          = ^array[] of processor_name_t;
+
+type processor_set_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: processor_set_t convert_port_to_pset(mach_port_t)
+		outtran: mach_port_t convert_pset_to_port(processor_set_t)
+		destructor: pset_deallocate(processor_set_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type processor_set_array_t = ^array[] of processor_set_t;
+
+type processor_set_name_t = mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: processor_set_t convert_port_to_pset_name(mach_port_t)
+		outtran: mach_port_t convert_pset_name_to_port(processor_set_t)
+		destructor: pset_deallocate(processor_set_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+type processor_set_name_array_t = ^array[] of processor_set_name_t;
+
+type processor_set_info_t	= array[*:1024] of integer_t;
+
+type kernel_version_t		= (MACH_MSG_TYPE_STRING, 512*8);
+type new_kernel_version_t = c_string[512]
+  ctype: kernel_version_t;
+
+type rpc_time_value_t		= struct {
+  rpc_long_integer_t seconds;
+  integer_t microseconds;
+};
+type time_value_t = rpc_time_value_t
+#if defined(KERNEL_SERVER)
+    intran: time_value_t convert_time_value_from_user(rpc_time_value_t)
+    outtran: rpc_time_value_t convert_time_value_to_user(time_value_t)
+#elif defined(KERNEL_USER)
+    ctype: rpc_time_value_t
+#endif
+    ;
+
+type time_value64_t		= struct {
+  int64_t seconds;
+  int64_t nanoseconds;
+};
+
+type emulation_vector_t		= ^array[] of vm_offset_t;
+
+type rpc_signature_info_t	= array[*:1024] of int;
+
+#if	KERNEL_SERVER
+simport <kern/ipc_kobject.h>;	/* for null conversion */
+simport <kern/ipc_tt.h>;	/* for task/thread conversion */
+simport <kern/ipc_host.h>;	/* for host/processor/pset conversions */
+simport <kern/task.h>;		/* for task_t */
+simport <kern/thread.h>;	/* for thread_t */
+simport <kern/host.h>;		/* for host_t */
+simport <kern/processor.h>;	/* for processor_t, processor_set_t */
+simport <vm/vm_object.h>;	/* for vm_object_t */
+simport <vm/vm_map.h>;		/* for vm_map_t */
+simport <ipc/ipc_space.h>;	/* for ipc_space_t */
+#endif	/* KERNEL_SERVER */
+
+import <mach/mach_types.h>;
+
+#endif	/* _MACH_MACH_TYPES_DEFS_ */

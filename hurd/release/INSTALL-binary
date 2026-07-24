@@ -1,0 +1,472 @@
+-*- Text -*-
+Instructions for bootstrapping the Hurd from binary images (i386).
+GNU Version 0.2
+
+
+This is the Hurd.  Welcome.
+
+This directory contains i386 binaries for the Hurd and various
+programs built to run under it.  
+
+See the file SOURCES to see where each package came from.  Remember
+that you must adhere to the GNU General Public License and the GNU
+Library General Public when distributing this binary snapshot.  See
+/share/misc/COPYING and /share/misc/COPYING.LIB for copies of these
+licenses. 
+
+If you have noticed that these steps are rather long and a bit too
+complex, you are right.  One of our upcoming tasks is to develop a
+convenient package mechanism and more streamlined installation
+procedure. 
+
+Bug reports for programs in this distribution should be sent to the
+maintainer of the program.  For a complete list of which mailing lists
+get bug reports for which programs, ask `gnu@prep.ai.mit.edu'.
+
+Bug reports for the GNU Hurd should be sent to the mailing list
+`bug-hurd@prep.ai.mit.edu'.  Please do not send requests for
+assistance in installing or using the software to that address.
+Instead, send requests for assistance to the mailing list
+`help-hurd@prep.ai.mit.edu'.  You can join these lists by sending a
+request to `bug-hurd-request@prep.ai.mit.edu' or
+`help-hurd-request@prep.ai.mit.edu' respectively.
+
+In addition, bug reports or requests for help in using the system as a
+connected whole (as opposed to for particular programs) should be sent
+to the hurd mailing lists.
+
+
+
+STEP I:
+
+Fetch the file `grub-boot.image' from the FTP site.  It should be
+in the same directory as the Hurd binary image tar file.  Copy this
+file onto a fresh floppy with the command:
+  dd if=grub-boot.image of=/dev/fd0 bs=512
+This is your `grub boot floppy', referred to below.
+
+Unpack the binary distribution onto a fresh disk partition, which
+needs to be BSD FFS format or Linux ext2fs format.
+
+Start with a system already running BSD:
+
+  You should ideally use a fresh disk, labelling it with the BSD
+  `disklabel' command.
+
+  Make the A partition large enough to hold the entire Hurd binary
+  image, and then some, and make a B partition for swap.  Use newfs to
+  make a filesystem on the A partition, mount it, and extract the
+  entire Hurd image into it.  Make sure you do this as root, and
+  remember to give tar the `p' option.
+  
+Start with a system already running a GNU/Linux system:
+
+  Again, we suggest using a fresh disk.  But you can also use an
+  existing partition.  Make it big enough to hold the entire Hurd
+  binary image, and then some.  Make sure you have a partition for
+  swap too.  Extract the binary image onto the new partition using
+  tar; make sure you sue the `p' option to tar.   
+
+  You need to set the "owning OS" field for this filesystem to "hurd";
+  otherwise you will not be able to use Hurd-related extensions on
+  it.  (And using those extensions is required on the root
+  filesystem.)  Run the command `e2os DEVICE hurd' after the
+  filesystem is unmounted in order to accomplish this.
+
+If you do not have a system running BSD or a GNU/Linux system, you can
+install using the NetBSD boot floppies.  To do this, you do NOT need
+to install NetBSD; you will just be using their boot floppies
+briefly. 
+
+  Unpack the entire Hurd image somewhere accessible by NFS.  Then see
+  the instruction subroutine in this file labelled `Installing from
+  NetBSD boot floppies' and follow them.
+
+We plan to have our own boot floppies, which will make this all a fair
+bit easier.
+
+
+
+STEP II:
+
+You might need to change the device on which paging is done.  This is
+done in a file in the Hurd partition called `boot/servers.boot', on
+the line which looks like:
+
+  /dev/sd0b $(add-paging-file) $(default-pager)
+
+`sd0b' is the paging device.  Replace this with the correct device
+name (this is a mach partition name), or comment out the line if you
+don't want paging.  Note that you don't have to do anything to
+initialize swap partitions, unlike Linux.  
+
+If your filesystem is an ext2fs filesystem (if you are starting with a
+system already running a GNU/Linux system, for example), then you also
+should change the reference to /hurd/ufs.static into a reference to
+/hurd/ext2fs.static.  
+
+(If you did STEP I using NetBSD boot floppies, then this file should
+be /mnt/boot/servers.boot.)
+
+
+
+STEP III:
+
+(If you used NetBSD boot floppies, shutdown NetBSD with the commands
+`umount /mnt' and `halt'.)
+
+Now boot the Hurd the following way.  First, boot the grub boot
+floppy.  When the menu comes up, select one of the single user boot
+commands, depending on whether you have a SCSI disk (sd0) or an IDE
+type disk (hd0).  If you put the Hurd on something other than
+partition `a', then you will need to edit the boot commands
+appropriately before booting.  (Editing the commands using grub only
+affects what you boot that time, it does not affect what the floppy
+does the next time you boot it.)
+
+Mach should load, and then the Hurd should start, saying something like:
+
+   Hurd server bootstrap: ufs exec init proc auth.
+   Single-user bootstrap: term sh.
+   bash# 
+
+
+
+STEP IV:
+
+When GNU boots the first time, you might see some confusing messages,
+and you may notice that pipes don't work.
+
+In order to set up the translators for this to be a fully functional
+Hurd system, say
+
+  /bin/sh /SETUP
+
+This will set up some initial translators so that the system runs
+normally, and then offer to reboot the system.  When you get to the
+GRUB menu, do step V.
+
+
+NOTE: Do NOT RUN BSD FSCK on a Hurd FFS!
+  
+  (Hurd partitions, especially the root partition, may have filesystem
+  extensions that BSD does not know about.  Most of these are ignored
+  by the BSD kernel and filesystem tools.  One of them, `passive
+  translators' (a/k/a non-transient mounts), is not understood by the
+  BSD fsck.  If you run the BSD fsck on a Hurd partition with such
+  translators, things might fail *massively*.  The Hurd version of
+  fsck does not, of course, have any such problem.
+
+  (The Hurd root partition needs to have such translators installed in
+  order to work correctly.  Other partitions don't; the filesystems
+  support compat options to prevent the use of Hurd filesystem
+  extensions.)
+
+
+
+STEP V:
+
+Now boot from the floppy again.  This time, select the option to
+install grub from the floppy.  (If your disk isn't known as hd0 to
+grub, then you will need to edit the commands accordingly.)  Reset
+your PC and take the floppy disk out of the drive.  The hard disk
+should now boot successfully.
+
+Select the single-user boot menu option, and proceed to STEP VI.
+
+The menu that grub provides is found in /boot/grub/menu.lst.  You can
+edit that file to change what options the menu provides, as well as
+which option is selected by default.  (You can change the one on the
+floppy by mounting the filesystem it contains and editing the file
+there.)
+
+
+
+STEP VI:
+
+Now you have a Hurd system.  But in order to make it fully usable, do
+the following:
+
+
+*** make devices
+cd to /dev and make devices.
+
+Say `./MAKEDEV dev1 dev2 dev3 ...'.
+
+Supported devices are:
+  o any hard disk device you have; you must specify both unit number *and*
+    partition.  Something like `sd0a' or `hd1f' is called for.  Unit
+    number without any partition names the entire disk.  
+  o floppy disk drives, give something like `fd0' or `fd1'.
+  o hardwired terminals, something like `com0' or `com1'.
+
+In general, the name of the device to use was printed by Mach when it
+booted. 
+
+
+*** setup network
+
+If you want to use the network, set it up thus:
+    
+     settrans /servers/socket/inet \
+	/hurd/pfinet --interface=eth0 --address=NN.NN.NN.NN \
+                     --gateway=GG.GG.GG.GG --netmask=MM.MM.MM.MM
+
+where NN.NN.NN.NN is your IP address (not hostname, IP address).  GG.GG.GG.GG
+is the address of an IP gateway, and MM.MM.MM.MM the netmask for the local
+subnet.  If your host is isolated, then you can omit the gateway, and the
+netmask argument is optional if you don't use subnetting.  The
+interface name to use was printed by Mach when it booted.
+
+Pfinet currently only supports a single active interface.  Parameters may be
+changed while pfinet is running by using fsysopts, e.g.:
+
+     fsysopts /servers/socket/inet --netmask=MM.MM.MM.MM
+
+Make sure you edit /etc/resolv.conf and/or /etc/hosts for the
+nameserver to work properly. 
+
+
+*** mount partitions
+
+You can mount a partition (say hd0a) by saying:
+
+     settrans /mnt /hurd/ufs /dev/hd0a
+
+The name `/dev/hd0a' must have been created using `./MAKEDEV hd0a' in
+the /dev directory.
+
+(This is equivalent to Unixy `mount /dev/hd0a /mnt'.)
+   
+If it's a Linux ext2 format disk, just do
+
+  settrans /mnt /hurd/ext2fs /dev/hd0a
+
+You can make it readonly thus:
+
+  settrans /mnt /hurd/ufs -r /dev/hd0a
+
+For more information on settrans, see the end of this file.
+
+NFS mounts, not surprisingly, are done thus:
+
+  settrans /mnt /hurd/nfs /remote/file/system remote.host.org
+
+(You may also use the host:fs and fs@host notations if you prefer.)
+NFS supports many options; use `/hurd/nfs --help' to see them all.
+
+The mounts created this way are not transient--they will last across
+reboots, being recorded directly on disk.  To get rid of one, say:
+`settrans /mnt' with no further args.  The command `showtrans /mnt'
+will show you where it's at right now.  However, note that to have them
+automatically fscked, you'll have to make entries in /etc/fstab (see
+`fscking', above).
+
+A temporary mount (which lasts only until the filesystem program is
+killed or the system is rebooted) can be accomplished by giving the -a
+option to settrans thus: `settrans -a /mnt /hurd/ufs /dev/sd0a'.
+(Note the placement of this option, as an arg to settrans, is
+different from the -r options you might give to the filesystem.)
+`showtrans' does not display these temporary mounts.
+
+
+
+
+*** edit configuration files
+
+Edit the password file (/etc/passwd) appropriately.
+
+Add any serial lines you have terminals on to /etc/ttys.
+
+Set your hostname with `echo foo.bar.baz > /etc/hostname'.  This will
+then be permanent until you change the file.
+
+Create a link from /etc/localtime to the file describing your timezone
+in /share/zoneinfo.  Something like the following command will do the
+trick: `ln /share/zoneinfo/US/Eastern /etc/localtime'.  Look at the
+directory /share/zoneinfo to see all the various possibilities.
+
+Edit /etc/fstab according to the disk mounts you've installed; this
+will control which partitions `df' prints and which partitions get
+`fsck' run for them at boot time.  It will not affect which partitions
+are mounted; use settrans for that as explained above.
+
+Edit /etc/hosts if you want to.  The system works fine without it if a
+name server is available.
+
+Edit resolv.conf to provide for name service appropriate to your
+location. 
+
+
+*** build a smaller kernel
+
+As an optional step, you can build a smaller kernel.  The distributed
+kernel is quite large, because it includes a great many device
+drivers.  If you fetch the gnumach distribution, you can build a
+kernel with only the device drivers you actually need.  This will make
+bootstrapping faster, and also take less memory when the system is
+running, and result in a faster system in general.
+
+
+Once you've completed these steps, you can reboot the system multi
+user.  Enjoy!
+
+
+
+
+MISCELLANEOUS NOTES:
+
+Fscking:
+
+/sbin/fsck is a wrapper that invokes filesystem-specific backend programs for
+each particular type of filesystem; these backends do the actual work (they
+can be found in the same directory, with names like /sbin/fsck.ufs and
+/sbin/fsck.ext2).
+
+/sbin/fsck will currently only work with filesystems that have entries in the
+file `/etc/fstab'; for those, it will try to be intelligent about making
+active filesystems readonly before fscking them, and telling them to
+incorporate any changes that result (the backend fsck programs do not know
+anything about active filesystems).  However, it is up to the user to make
+sure that /etc/fstab accurately reflects reality.
+
+/etc/fstab is the same as in most unix systems -- any filesystems that are
+there and have a non-zero pass number will be automatically fscked during a
+multi-user boot.
+
+You'll certainly want to make an entry in /etc/fstab for the device that
+corresponds to your root filesystem (and make a device entry for it using
+MAKEDEV, as described above).
+
+
+GDB:
+
+The version of gdb included in this release has various features not used by
+most systems, in particular, the `thread' and `info thread' commands.
+
+The Hurd gdb can also debug running programs without halting them,
+which is useful to debug crucial system servers that can't be stopped
+without wedging the system.  To do this, give the command `set
+noninvasive on'.  Of course, gdb may get confused because data
+structures are changing underneath it, but this generally works pretty
+well.  Doing a detach and then another attach usually causes gdb to
+clue in to changes it otherwise misses.
+
+The `portinfo' program is also useful for debugging problems related
+to Mach ports.
+
+
+SETTRANS:
+
+The syntax of settrans is:
+
+  settrans [settrans-option-args] file command-line
+
+All the options after the file are part of the command given to the
+filesystem.  To see the args supported by ufs or ext2fs, say
+`/hurd/ufs --help' or `/hurd/ext2fs --help'.
+
+settrans itself supports several args.  (Use settrans --help for a
+summary.)  Once a filesystem is running, some options may be changed
+at runtime using the `fsysopts FSYS' command, where FSYS is the mount
+point (note that there is currently no easy way of finding out which
+ones).
+
+
+CRASH SERVER:
+
+When programs get fatal signals in the Hurd, they call the "crash
+server".  Right now, the crash server suspends the program, and the
+rest of its process group.
+
+At that point, if you resume the program, it will exit.  But you can
+also attach a debugger to it, and all it's current dynamic state will
+still be there.
+
+If you would rather have crashing programs just exit, and not suspend,
+then disable the crash server by saying `settrans /servers/crash'.
+You can always reenable it later, if you like, by typing the command
+`settrans /servers/crash /hurd/crash'.  
+
+Core dumps are not yet supported.
+
+
+
+
+Subroutine: Installing from NetBSD boot floppies
+
+If you do not have a system running BSD, the NetBSD 2-floppy install
+set contains enough tools to make a new filesystem using newfs and
+copy to it from nfs.  You can fetch these floppies from ftp.netbsd.org
+in the directory /pub/NetBSD/NetBSD-1.1/floppies.  The NetBSD install
+script will start automatically when you boot from the floppies, and
+we suggest you use it in order to partition and set up your disk.
+
+Here are detailed instructions for this step, assuming you are using
+NetBSD boot floppies, and you have the Hurd binary snapshot unpacked
+somewhere accessible via nfs.  It is assumed here that your machine's
+network address is MY-ADDR and that the nfs server's address is
+SERVER-ADDR.  The nfs mountpoint on the server is presumed to be
+SERVER-DIR.  (MY-ADDR and SERVER-ADDR should be IP addresses in dot
+notation, not hostnames.)  Your server and your new machine need to be
+on the same network.
+      
+If you installing this way, you probably want to do STEP II first,
+because your nfs server probably has more convenient editors than the
+NetBSD boot floppies.  The boot floppies have only ed.
+
+A.  Fetch the netbsd boot floppies from
+    ftp://ftp.netbsd.org/pub/NetBSD/NetBSD-1.1/i386/floppies.  Put the
+    images onto floppy disks using the instructions found on the FTP
+    site. 
+
+B.  Boot the `kernel' floppy, and switch to the `filesystem' floppy
+    when instructed.
+
+C.  Proceed through the NetBSD automated installation script.
+    When you are asked if you want to view the boot messages again, 
+    say yes.  Then answer the disk geometry questions correctly,
+    copying from what was printed at boot time.
+
+D.  Tell the script that you want to use cylinders, not sectors,
+    in specifying sizes.
+
+E.  Make the size of your `NetBSD' portion the total amount 
+    that the script has listed, starting at cylinder 0.
+
+F.  Then allocate however much disk you want to your root partition
+    and to your swap partition.  The root partition must be big
+    enough to hold the entire Hurd binary snapshot; it is strongly
+    recommended that you make it a fair bit bigger than that.  It is
+    quite satisfactory to use only one filesystem partition in the
+    Hurd. 
+
+G.  If you specify partitions beyond the root partition and swap,
+    the script will ask you for a `mount point'.  Type anything you
+    like, it won't matter.
+
+H.  Affirm to the over-eagerly questioning script that you really do
+    want to smash your disk.  NetBSD will proceed to create
+    filesystems on all the partitions you specified in I.G-H.
+
+I.  When the script says "populating ..." hit ^C.  You are now done
+    with the script.
+    
+J.  cd to /mnt.  For each mount point that was gratuitously created
+    in step I.H, say `umount NAME'.  Then say `rm -rf * .*'.  Make
+    sure you are really in /mnt.  This will delete whatever NetBSD
+    has put on your new partition.
+
+K.  Initialize the network with `ifconfig DEV MY-ADDR'.  DEV was
+    printed by the kernel when it booted; type `more /kern/msgbuf'
+    if you want to see those messages again.  (Sometimes ifconfig
+    says that something is "offline".  Ignore it.)
+
+L.  Mount the NFS server partition with the convenient command
+    `mount -o -P SERVER-ADDR:SERVER-DIR /mnt2'.
+
+M.  Copy the Hurd onto your disk with the command 
+    (cd /mnt2; tar cf - .) | (cd mnt; tar xfpv -)
+
+N.  If you haven't done STEP II yet, then do it now; otherwise go on
+    to STEP III.

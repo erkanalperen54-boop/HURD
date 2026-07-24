@@ -1,0 +1,5 @@
+echo TEST_START_MARKER
+multiboot /boot/xen dom0_mem=2000M,max:2000M console=com1 noreboot
+module /boot/gnumach GNUMACHARGS
+module /boot/BOOTMODULE BOOTMODULE '${host-port}' '${device-port}' '$(task-create)' '$(task-resume)'
+boot

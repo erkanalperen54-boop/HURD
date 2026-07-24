@@ -1,0 +1,34 @@
+This is GNU MIG, the GNU distribution of the Mach 3.0 Interface Generator
+(MIG), <http://www.gnu.org/software/hurd/microkernel/mach/mig/gnu_mig.html>.
+Welcome.
+
+This tool translates Remote Procedure Call (RPC) definition files to C
+code, and is required to compile any packages that are receiving or
+invoking RPCs, such as GNU Mach, GNU Hurd, and the GNU C Library (glibc)
+when compiled for the Hurd.
+
+Generic installation instructions may be found in the file `INSTALL'.
+
+NOTE: To compile this distribution, you will need a compilation environment for
+the target Mach platform (e.g. the GNU Hurd).  Actually, just a compiler for
+the right machine that can find the Mach include files will do (i.e. the
+`include/mach' tree installed by the GNU Mach distribution).  If you tell
+`configure' to produce a cross-MIG by giving `--target' and `--host' options
+that differ, it will attempt to find a compiler for the target; for example,
+with the command `configure --host=SOMETHING --target=i586-gnu', it will
+automatically try to use `i586-gnu-gcc' for the target compilations.  If you
+don't specify `--target', then the native compiler will be used and it must be
+able to find a Mach include tree.  You can explicitly set the target compiler
+and its `CPPFLAGS' and `CFLAGS' to use by passing `TARGET_CC',
+`TARGET_CPPFLAGS' or `TARGET'CFLAGS' to `configure', e.g.:
+
+	`configure TARGET_CC=i586-gnu-gcc' or
+	`configure TARGET_CPPFLAGS=-I"$HOME"/some/where/include'
+
+
+Please read the FAQ at <http://www.gnu.org/software/hurd/faq.html>.
+Bug reports should be sent to <bug-hurd@gnu.org> or filed on
+<http://savannah.gnu.org/bugs/?group=hurd>.  Requests for assistance
+should be sent to <help-hurd@gnu.org> or filed on
+<http://savannah.gnu.org/support/?group=hurd>.  You can also find us on
+the libera.chat IRC network in the #hurd channel.

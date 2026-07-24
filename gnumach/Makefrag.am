@@ -1,0 +1,615 @@
+# Main Makefile fragment for GNU Mach.
+
+# Copyright (C) 1997, 1999, 2004, 2006, 2007, 2009 Free Software
+# Foundation, Inc.
+
+# Permission to use, copy, modify and distribute this software and its
+# documentation is hereby granted, provided that both the copyright
+# notice and this permission notice appear in all copies of the
+# software, derivative works or modified versions, and any portions
+# thereof, and that both notices appear in supporting documentation.
+#
+# THE FREE SOFTWARE FOUNDATION ALLOWS FREE USE OF THIS SOFTWARE IN ITS
+# "AS IS" CONDITION.  THE FREE SOFTWARE FOUNDATION DISCLAIMS ANY
+# LIABILITY OF ANY KIND FOR ANY DAMAGES WHATSOEVER RESULTING FROM THE
+# USE OF THIS SOFTWARE.
+
+#
+# DDB support --- eventually to die.  Please.
+#
+
+# Do we want the icky kernel debugger?
+if enable_kdb
+libkernel_a_SOURCES += \
+	ddb/db_access.c \
+	ddb/db_access.h \
+	ddb/db_elf.c \
+	ddb/db_elf.h \
+	ddb/db_break.c \
+	ddb/db_break.h \
+	ddb/db_command.c \
+	ddb/db_command.h \
+	ddb/db_cond.c \
+	ddb/db_cond.h \
+	ddb/db_examine.c \
+	ddb/db_examine.h \
+	ddb/db_expr.c \
+	ddb/db_expr.h \
+	ddb/db_ext_symtab.c \
+	ddb/db_input.c \
+	ddb/db_input.h \
+	ddb/db_lex.c \
+	ddb/db_lex.h \
+	ddb/db_macro.c \
+	ddb/db_macro.h \
+	ddb/db_mp.c \
+	ddb/db_mp.h \
+	ddb/db_output.c \
+	ddb/db_output.h \
+	ddb/db_print.c \
+	ddb/db_print.h \
+	ddb/db_run.c \
+	ddb/db_run.h \
+	ddb/db_sym.c \
+	ddb/db_sym.h \
+	ddb/db_task_thread.c \
+	ddb/db_task_thread.h \
+	ddb/db_trap.c \
+	ddb/db_trap.h \
+	ddb/db_variables.c \
+	ddb/db_variables.h \
+	ddb/db_watch.c \
+	ddb/db_watch.h \
+	ddb/db_write_cmd.c \
+	ddb/db_write_cmd.h \
+	ddb/nlist.h \
+	ddb/stab.h \
+	ddb/tr.h
+
+# We need frame pointers for trace to work properly.
+AM_CFLAGS += -fno-omit-frame-pointer -fno-optimize-sibling-calls
+endif
+
+
+#
+# IPC implementation.
+#
+
+libkernel_a_SOURCES += \
+	ipc/copy_user.c \
+	ipc/copy_user.h \
+	ipc/ipc_entry.c \
+	ipc/ipc_entry.h \
+	ipc/ipc_init.c \
+	ipc/ipc_init.h \
+	ipc/ipc_kmsg.c \
+	ipc/ipc_kmsg.h \
+	ipc/ipc_kmsg_queue.h \
+	ipc/ipc_machdep.h \
+	ipc/ipc_marequest.c \
+	ipc/ipc_marequest.h \
+	ipc/ipc_mqueue.c \
+	ipc/ipc_mqueue.h \
+	ipc/ipc_notify.c \
+	ipc/ipc_notify.h \
+	ipc/ipc_object.c \
+	ipc/ipc_object.h \
+	ipc/ipc_port.c \
+	ipc/ipc_port.h \
+	ipc/ipc_print.h \
+	ipc/ipc_pset.c \
+	ipc/ipc_pset.h \
+	ipc/ipc_right.c \
+	ipc/ipc_right.h \
+	ipc/ipc_space.c \
+	ipc/ipc_space.h \
+	ipc/ipc_table.c \
+	ipc/ipc_table.h \
+	ipc/ipc_target.c \
+	ipc/ipc_target.h \
+	ipc/ipc_thread.c \
+	ipc/ipc_thread.h \
+	ipc/ipc_types.h \
+	ipc/mach_msg.c \
+	ipc/mach_msg.h \
+	ipc/mach_port.c \
+	ipc/mach_port.h \
+	ipc/mach_debug.c \
+	ipc/port.h
+EXTRA_DIST += \
+	ipc/mach_port.srv \
+	ipc/notify.defs
+
+
+#
+# `kernel' implementation (tasks, threads, trivia, etc.).
+#
+
+libkernel_a_SOURCES += \
+	kern/assert.h \
+	kern/ast.c \
+	kern/ast.h \
+	kern/atomic.h \
+	kern/boot_script.h \
+	kern/bootstrap.c \
+	kern/bootstrap.h \
+	kern/counters.c \
+	kern/counters.h \
+	kern/cpu_number.h \
+	kern/debug.c \
+	kern/debug.h \
+	kern/eventcount.c \
+	kern/eventcount.h \
+	kern/exception.c \
+	kern/exception.h \
+	kern/gsync.c \
+	kern/gsync.h \
+	kern/host.c \
+	kern/host.h \
+	kern/ipc_host.c \
+	kern/ipc_host.h \
+	kern/ipc_kobject.c \
+	kern/ipc_kobject.h \
+	kern/ipc_mig.c \
+	kern/ipc_mig.h \
+	kern/ipc_sched.c \
+	kern/ipc_sched.h \
+	kern/ipc_tt.c \
+	kern/ipc_tt.h \
+	kern/kalloc.h \
+	kern/kern_types.h \
+	kern/kmutex.c \
+	kern/kmutex.h \
+	kern/list.h \
+	kern/lock.c \
+	kern/lock.h \
+	kern/lock_mon.c \
+	kern/log2.h \
+	kern/mach_clock.c \
+	kern/mach_clock.h \
+	kern/mach_factor.c \
+	kern/mach_factor.h \
+	kern/machine.c \
+	kern/machine.h \
+	kern/macros.h \
+	kern/pc_sample.c \
+	kern/pc_sample.h \
+	kern/printf.c \
+	kern/printf.h \
+	kern/priority.c \
+	kern/priority.h \
+	kern/processor.c \
+	kern/processor.h \
+	kern/profile.c \
+	kern/queue.c \
+	kern/queue.h \
+	kern/rbtree.c \
+	kern/rbtree.h \
+	kern/rbtree_i.h \
+	kern/rdxtree.c \
+	kern/rdxtree.h \
+	kern/rdxtree_i.h \
+	kern/refcount.h \
+	kern/slab.c \
+	kern/slab.h \
+	kern/smp.h \
+	kern/smp.c \
+	kern/sched.h \
+	kern/sched_prim.c \
+	kern/sched_prim.h \
+	kern/shuttle.h \
+	kern/startup.c \
+	kern/startup.h \
+	kern/strings.c \
+	kern/syscall_emulation.c \
+	kern/syscall_emulation.h \
+	kern/syscall_subr.c \
+	kern/syscall_subr.h \
+	kern/syscall_sw.c \
+	kern/syscall_sw.h \
+	kern/task.c \
+	kern/task.h \
+	kern/thread.c \
+	kern/thread.h \
+	kern/thread_swap.c \
+	kern/thread_swap.h \
+	kern/timer.c \
+	kern/timer.h \
+	kern/xpr.c \
+	kern/xpr.h \
+	kern/elf-load.c \
+	kern/boot_script.c
+EXTRA_DIST += \
+	kern/exc.defs \
+	kern/mach.srv \
+	kern/mach4.srv \
+	kern/gnumach.srv \
+	kern/experimental.srv \
+	kern/mach_debug.srv \
+	kern/mach_host.srv \
+	kern/task_notify.cli
+
+
+#
+# Still more trivia.
+#
+
+libkernel_a_SOURCES += \
+	util/atoi.c \
+	util/atoi.h \
+	util/byteorder.h \
+	util/byteorder.c
+
+#
+# Virtual memory implementation.
+#
+
+libkernel_a_SOURCES += \
+	vm/memory_object_proxy.c \
+	vm/memory_object_proxy.h \
+	vm/memory_object.c \
+	vm/memory_object.h \
+	vm/pmap.h \
+	vm/vm_debug.c \
+	vm/vm_external.c \
+	vm/vm_external.h \
+	vm/vm_fault.c \
+	vm/vm_fault.h \
+	vm/vm_init.c \
+	vm/vm_init.h \
+	vm/vm_kern.c \
+	vm/vm_kern.h \
+	vm/vm_map.c \
+	vm/vm_map.h \
+	vm/vm_object.c \
+	vm/vm_object.h \
+	vm/vm_page.c \
+	vm/vm_page.h \
+	vm/vm_pageout.c \
+	vm/vm_pageout.h \
+	vm/vm_print.h \
+	vm/vm_resident.c \
+	vm/vm_resident.h \
+	vm/vm_types.h \
+	vm/vm_user.c \
+	vm/vm_user.h
+EXTRA_DIST += \
+	vm/memory_object_default.cli \
+	vm/memory_object_user.cli
+
+
+#
+# Device driver support.
+#
+
+# These device support files are always needed; the others are needed only if
+# particular drivers want the routines.
+# TODO.  Functions in device/subrs.c should each be moved elsewhere.
+libkernel_a_SOURCES += \
+	device/blkio.c \
+	device/blkio.h \
+	device/buf.h \
+	device/chario.c \
+	device/chario.h \
+	device/cirbuf.h \
+	device/conf.h \
+	device/cons.c \
+	device/cons.h \
+	device/device_emul.h \
+	device/dev_hdr.h \
+	device/dev_lookup.c \
+	device/dev_master.h \
+	device/dev_name.c \
+	device/dev_pager.c \
+	device/dev_pager.h \
+	device/device_init.c \
+	device/device_init.h \
+	device/device_port.h \
+	device/device_types_kernel.h \
+	device/ds_routines.c \
+	device/ds_routines.h \
+	device/if_ether.h \
+	device/if_hdr.h \
+	device/input.h \
+	device/intr.c \
+	device/intr.h \
+	device/io_req.h \
+	device/net_io.c \
+	device/net_io.h \
+	device/param.h \
+	device/subrs.c \
+	device/subrs.h \
+	device/tty.h
+EXTRA_DIST += \
+	device/device.srv \
+	device/device_pager.srv \
+	device/device_reply.cli \
+	device/memory_object_reply.cli
+
+
+#
+# `kmsg' device.
+#
+
+if enable_kmsg
+libkernel_a_SOURCES += \
+	device/kmsg.c \
+	device/kmsg.h
+endif
+
+
+#
+# Version number.
+#
+
+nodist_libkernel_a_SOURCES += \
+	version.c
+
+#
+# Installation.
+#
+
+include_devicedir = $(includedir)/device
+include_device_HEADERS = \
+	include/device/audio_status.h \
+	include/device/bpf.h \
+	include/device/device.defs \
+	include/device/device_reply.defs \
+	include/device/device_request.defs \
+	include/device/device_types.defs \
+	include/device/device_types.h \
+	include/device/disk_status.h \
+	include/device/irq_status.h \
+	include/device/net_status.h \
+	include/device/notify.defs \
+	include/device/notify.h \
+	include/device/tape_status.h \
+	include/device/tty_status.h
+
+include_machdir = $(includedir)/mach
+include_mach_HEADERS = \
+	include/mach/default_pager.defs \
+	include/mach/default_pager_types.defs \
+	include/mach/exc.defs \
+	include/mach/mach.defs \
+	include/mach/mach4.defs \
+	include/mach/gnumach.defs \
+	include/mach/task_notify.defs \
+	include/mach/mach_host.defs \
+	include/mach/mach_port.defs \
+	include/mach/mach_types.defs \
+	include/mach/memory_object.defs \
+	include/mach/memory_object_default.defs \
+	include/mach/notify.defs \
+	include/mach/std_types.defs \
+	include/mach/experimental.defs \
+	include/mach/alert.h \
+	include/mach/boolean.h \
+	include/mach/boot.h \
+	include/mach/default_pager_types.h \
+	include/mach/exception.h \
+	include/mach/host_info.h \
+	include/mach/kern_return.h \
+	include/mach/mach_param.h \
+	include/mach/mach_types.h \
+	include/mach/machine.h \
+	include/mach/macro_help.h \
+	include/mach/memory_object.h \
+	include/mach/message.h \
+	include/mach/mig_errors.h \
+	include/mach/notify.h \
+	include/mach/pc_sample.h \
+	include/mach/policy.h \
+	include/mach/port.h \
+	include/mach/processor_info.h \
+	include/mach/profil.h \
+	include/mach/profilparam.h \
+	include/mach/std_types.h \
+	include/mach/syscall_sw.h \
+	include/mach/task_info.h \
+	include/mach/task_special_ports.h \
+	include/mach/thread_info.h \
+	include/mach/thread_special_ports.h \
+	include/mach/thread_status.h \
+	include/mach/thread_switch.h \
+	include/mach/time_value.h \
+	include/mach/version.h \
+	include/mach/vm_attributes.h \
+	include/mach/vm_cache_statistics.h \
+	include/mach/vm_inherit.h \
+	include/mach/vm_param.h \
+	include/mach/vm_prot.h \
+	include/mach/vm_statistics.h \
+	include/mach/vm_sync.h \
+	include/mach/vm_wire.h \
+	include/mach/inline.h \
+	include/mach/xen.h
+
+# If we name this `*_execdir', Automake won't add it to `install-data'...
+include_mach_eXecdir = $(includedir)/mach/exec
+include_mach_eXec_HEADERS = \
+	include/mach/exec/a.out.h \
+	include/mach/exec/elf.h \
+	include/mach/exec/exec.h
+
+include_mach_debugdir = $(includedir)/mach_debug
+include_mach_debug_HEADERS = \
+	$(addprefix include/mach_debug/, \
+		hash_info.h \
+		mach_debug.defs	\
+		mach_debug_types.defs \
+		mach_debug_types.h \
+		vm_info.h \
+		slab_info.h \
+	)
+
+# Other headers for the distribution.  We don't install these, because the
+# GNU C library has correct versions for users to use.
+# other-sys-headers := types.h reboot.h ioctl.h
+# other-mach-headers := mig_support.h mach_traps.h error.h
+# other-headers := alloca.h
+
+install-data-hook:
+	rm -f '$(DESTDIR)$(include_machdir)'/machine
+	ln -s '$(systype)' '$(DESTDIR)$(include_machdir)'/machine
+
+#
+# Building a distribution.
+#
+
+# Enable all available features.
+DISTCHECK_CONFIGURE_FLAGS += \
+	--enable-kdb
+
+# Instead of listing each file individually...
+EXTRA_DIST += \
+	include
+
+#
+# Automatically generated source files.
+#
+# See Makerules.mig.am.
+#
+
+# User stubs.
+nodist_lib_dep_tr_for_defs_a_SOURCES += \
+	vm/memory_object_user.user.defs.c \
+	vm/memory_object_default.user.defs.c
+nodist_libkernel_a_SOURCES += \
+	vm/memory_object_user.user.h \
+	vm/memory_object_user.user.c \
+	vm/memory_object_user.user.msgids \
+	vm/memory_object_default.user.h \
+	vm/memory_object_default.user.c \
+	vm/memory_object_default.user.msgids
+#	vm/memory_object_user.user.defs
+#	vm/memory_object_default.user.defs
+nodist_lib_dep_tr_for_defs_a_SOURCES += \
+	device/device_reply.user.defs.c \
+	device/memory_object_reply.user.defs.c
+nodist_libkernel_a_SOURCES += \
+	device/device_reply.user.h \
+	device/device_reply.user.c \
+	device/device_reply.user.msgids \
+	device/memory_object_reply.user.h \
+	device/memory_object_reply.user.c \
+	device/memory_object_reply.user.msgids
+#	device/device_reply.user.defs
+#	device/memory_object_reply.user.defs
+
+nodist_lib_dep_tr_for_defs_a_SOURCES += \
+	kern/task_notify.user.defs.c
+nodist_libkernel_a_SOURCES += \
+	kern/task_notify.user.h \
+	kern/task_notify.user.c \
+	kern/task_notify.user.msgids
+
+# Server stubs.
+nodist_lib_dep_tr_for_defs_a_SOURCES += \
+	device/device.server.defs.c \
+	device/device_pager.server.defs.c
+nodist_libkernel_a_SOURCES += \
+	device/device.server.h \
+	device/device.server.c \
+	device/device.server.msgids \
+	device/device_pager.server.h \
+	device/device_pager.server.c \
+	device/device_pager.server.msgids
+#	device/device.server.defs
+#	device/device_pager.server.defs
+nodist_lib_dep_tr_for_defs_a_SOURCES += \
+	ipc/mach_port.server.defs.c
+nodist_libkernel_a_SOURCES += \
+	ipc/mach_port.server.h \
+	ipc/mach_port.server.c \
+	ipc/mach_port.server.msgids
+#	ipc/mach_port.server.defs
+nodist_lib_dep_tr_for_defs_a_SOURCES += \
+	kern/mach.server.defs.c \
+	kern/mach4.server.defs.c \
+	kern/gnumach.server.defs.c \
+	kern/experimental.server.defs.c \
+	kern/mach_debug.server.defs.c \
+	kern/mach_host.server.defs.c
+nodist_libkernel_a_SOURCES += \
+	kern/mach.server.h \
+	kern/mach.server.c \
+	kern/mach.server.msgids \
+	kern/mach4.server.h \
+	kern/mach4.server.c \
+	kern/mach4.server.msgids \
+	kern/gnumach.server.h \
+	kern/gnumach.server.c \
+	kern/gnumach.server.msgids \
+	kern/experimental.server.h \
+	kern/experimental.server.c \
+	kern/experimental.server.msgids \
+	kern/mach_debug.server.h \
+	kern/mach_debug.server.c \
+	kern/mach_debug.server.msgids \
+	kern/mach_host.server.h \
+	kern/mach_host.server.c \
+	kern/mach_host.server.msgids
+#	kern/mach.server.defs
+#	kern/mach4.server.defs
+#	kern/gnumach.server.defs
+#	kern/experimental.server.defs
+#	kern/mach_debug.server.defs
+#	kern/mach_host.server.defs
+
+# Stand-alone rule to generate the list of message ids when neither
+# the client nor the server stubs are required.
+nodist_lib_dep_tr_for_defs_a_SOURCES += \
+	ipc/notify.none.defs.c \
+	kern/exc.none.defs.c
+nodist_libkernel_a_SOURCES += \
+	ipc/notify.none.msgids \
+	kern/exc.none.msgids
+#	ipc/notify.none.defs
+
+# rpctrace can make use of that.
+MOSTLYCLEANFILES += \
+	gnumach.msgids
+gnumach.msgids: $(filter %.msgids,$(nodist_libkernel_a_SOURCES))
+	$(AM_V_at) cat $^ > $@.new
+	$(AM_V_GEN) mv $@.new $@
+# `exec_' prefix, so that we don't try to build that file during when running
+# `make install-data', as it may fail there, but isn't needed there either.
+exec_msgidsdir = $(datadir)/msgids
+exec_msgids_DATA = gnumach.msgids
+
+#
+# Specific code.
+#
+
+# Linux device drivers and the glue code.
+include linux/Makefrag.am
+
+#
+# Platform specific parts.
+#
+
+# Xen.
+if PLATFORM_xen
+include xen/Makefrag.am
+endif
+
+#
+# Architecture specific parts.
+#
+
+if HOST_ix86
+include i386/Makefrag_x86.am
+endif
+if HOST_x86_64
+include i386/Makefrag_x86.am
+endif
+
+# ix86.
+include i386/Makefrag.am
+
+# x86_64.
+include x86_64/Makefrag.am
+
+# aarch64.
+include aarch64/Makefrag.am

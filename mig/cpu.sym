@@ -1,0 +1,116 @@
+/*
+ * Copyright (c) 1992-1987 Carnegie Mellon University
+ * All Rights Reserved.
+ *
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation is hereby granted, provided that both the copyright
+ * notice and this permission notice appear in all copies of the
+ * software, derivative works or modified versions, and any portions
+ * thereof, and that both notices appear in supporting documentation.
+ *
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+ * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+ * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+ *
+ * Carnegie Mellon requests users of this software to return to
+ *
+ *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+ *  School of Computer Science
+ *  Carnegie Mellon University
+ *  Pittsburgh PA 15213-3890
+ *
+ * any improvements or extensions that they make and grant Carnegie Mellon
+ * the rights to redistribute these changes.
+ */
+/*
+ *	Mach IPC message and primitive function definitions.
+ */
+
+/*
+ * Fetch values from the Mach header.
+ */
+#include <mach/message.h>
+#include <stdint.h>
+
+/*
+ *	Known values for the msgt_name field.
+ *
+ *	The only types known to the Mach kernel are
+ *	the port types, and those types used in the
+ *	kernel RPC interface.
+ */
+
+expr MACH_MSG_TYPE_UNSTRUCTURED
+expr MACH_MSG_TYPE_BIT
+expr MACH_MSG_TYPE_BOOLEAN
+expr MACH_MSG_TYPE_INTEGER_16
+expr MACH_MSG_TYPE_INTEGER_32
+expr MACH_MSG_TYPE_CHAR
+expr MACH_MSG_TYPE_BYTE
+expr MACH_MSG_TYPE_INTEGER_8
+expr MACH_MSG_TYPE_REAL
+expr MACH_MSG_TYPE_INTEGER_64
+expr MACH_MSG_TYPE_STRING
+expr MACH_MSG_TYPE_STRING_C
+
+/*
+ *  Values used when sending a port right.
+ */
+
+/* Must hold receive rights */
+expr MACH_MSG_TYPE_MOVE_RECEIVE
+/* Must hold send rights */
+expr MACH_MSG_TYPE_MOVE_SEND
+/* Must hold sendonce rights */
+expr MACH_MSG_TYPE_MOVE_SEND_ONCE
+/* Must hold send rights */
+expr MACH_MSG_TYPE_COPY_SEND
+/* Must hold receive rights */
+expr MACH_MSG_TYPE_MAKE_SEND
+/* Must hold receive rights */
+expr MACH_MSG_TYPE_MAKE_SEND_ONCE
+
+/*
+ *  Values received/carried in messages.  Tells the receiver what
+ *  sort of port right he now has.
+ *
+ *  MACH_MSG_TYPE_PORT_NAME is used to transfer a port name
+ *  which should remain uninterpreted by the kernel.  (Port rights
+ *  are not transferred, just the port name.)
+ */
+
+expr MACH_MSG_TYPE_PORT_NAME
+expr MACH_MSG_TYPE_PORT_RECEIVE
+expr MACH_MSG_TYPE_PORT_SEND
+expr MACH_MSG_TYPE_PORT_SEND_ONCE
+
+expr MACH_MSG_TYPE_PROTECTED_PAYLOAD
+
+/*
+ *  A dummy value.  Mostly used to indicate that the actual value
+ *  will be filled in later, dynamically.
+ */
+
+expr MACH_MSG_TYPE_POLYMORPHIC
+
+
+/* Types used in interfaces */
+expr sizeof(uintptr_t)			desired_complex_alignof
+expr sizeof(void*)			sizeof_pointer
+expr sizeof(char)			sizeof_char
+expr sizeof(short)			sizeof_short
+expr sizeof(int)			sizeof_int
+expr sizeof(long)			sizeof_long
+expr sizeof(int64_t)			sizeof_int64_t
+expr sizeof(float)			sizeof_float
+expr sizeof(double)			sizeof_double
+expr sizeof(uintptr_t)			sizeof_uintptr_t
+expr sizeof(intptr_t)			sizeof_intptr_t
+expr (sizeof(uintptr_t)*8)		sizeof_uintptr_t_in_bits
+expr sizeof(mach_msg_header_t)		sizeof_mach_msg_header_t
+expr sizeof(mach_msg_type_long_t)	sizeof_mach_msg_type_long_t
+expr sizeof(mach_msg_type_t)		sizeof_mach_msg_type_t
+expr sizeof(vm_offset_t)		vm_offset_size
+expr (sizeof(vm_offset_t)*8)		vm_offset_size_in_bits
+expr sizeof(mach_port_name_t)		port_name_size
+expr (sizeof(mach_port_name_t)*8)	port_name_size_in_bits

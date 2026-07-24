@@ -1,0 +1,681 @@
+# Generic configuration for Hurd compilation		-*- makefile-gmake -*-
+
+# Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002, 2003,
+# 2006, 2007, 2008, 2010, 2011, 2012, 2013 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+# Directory makefiles should set the variable makemode to either
+# `server' if they compile and install a single program for /hurd
+# `utility' if they compile and install a single program for /bin
+# `servers' if they compile and install multiple programs for /hurd
+# `utilities' if they compile and install multiple programs for /bin
+# `library' if they compile and install a library
+# `misc' if they do none of those
+
+# Every makefile should define
+# SRCS (all actual source code)
+# OBJS (all .o files used to produce some target).
+# HURDLIBS (all Hurd libraries used; with no directory name or `lib' attached)
+#   For types `server' and `utility' an automatic dependency will be
+#   written for these, and type `library' will include a .so dependency.
+#   Types `servers' and `utilities'; you have to do it yourself.
+# DISTFILES (any built files to be included in distributions).
+
+# Types `server' and `utility' should define
+#   target (the name of the program built)
+
+# Types `servers' and `utilities' should define
+#   targets (the names of all the programs built)
+#   special-targets (targets which should not be built the normal way
+#    and have their own rules)
+
+# Type `library' should define
+#   libname (the name of the library, without .a.)
+#   installhdrs (header files that should be installed in /include)
+#   installhdrsubdir (the subdirectory they should go in, default `hurd')
+# and must not define $(targets).
+
+# Put this first so it's the default
+all:
+
+# Figure out how to locate the parent directory from here.
+ifeq (.,$(dir))
+.. =
+else
+.. = ../
+endif
+
+ifndef srcdir
+# We are building in the source directory itself.
+srcdir = .
+ifeq (.,$(dir))
+top_srcdir = .
+else
+top_srcdir = ..
+endif
+endif
+
+# Generic compiler options, appended to whatever the particular makefile set.
+# The config.make file will append the values chosed by configure.
+INCLUDES = -I. $(srcdirinc)
+ifneq (.,$(dir))
+INCLUDES += -I.. $(top_srcdirinc)
+endif
+INCLUDES += -I$(..)include -I$(top_srcdir)/include
+CPPFLAGS += $(INCLUDES) \
+	     -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
+	    $($*-CPPFLAGS)
+CFLAGS += -std=gnu99 $(gnu89-inline-CFLAGS) -Wall -Werror=old-style-definition \
+					-Werror=implicit-function-declaration -Werror=strict-prototypes \
+					-g -O3 -fno-strict-aliasing $($*-CFLAGS)
+
+# Include the configure-generated file of parameters.
+# This sets up variables for build tools and installation directories.
+ifneq (,$(wildcard $(..)config.make))
+include $(..)config.make
+# Set a flag for the makefiles to indicated config.make was included.
+configured = yes
+endif
+
+# If we're not configured, don't do deps; then `make TAGS' and such can work.
+ifndef configured
+no_deps = t
+endif
+
+# Test build options set by configure.
+ifeq (no,$(build-profiled))
+no_prof = t
+endif
+
+
+# Flags for compilation.
+# It is important to have this inclusion first; that picks up our
+# library header files locally rather than from installed copies.
+# Append to any value set by the specific Makefile or by configure.
+ifeq ($(srcdir),.)
+srcdirinc=
+else
+srcdirinc=-I$(srcdir)
+endif
+ifeq ($(top_srcdir),..)
+top_srcdirinc=
+else
+top_srcdirinc=-I$(top_srcdir)
+endif
+
+# More useful version of HURDLIBS
+library_deps=$(foreach lib,$(HURDLIBS),$(..)lib$(lib)/lib$(lib).so)
+
+# Local programs:
+MKINSTALLDIRS = $(top_srcdir)/mkinstalldirs
+move-if-change = $(SHELL) $(top_srcdir)/move-if-change
+
+# Decode makemode.
+# After this section, $(targets) and $(progtarg) will be defined,
+# and everything else should use only those and not $(target).
+# targets will have all the (one or more) targets that should be installed;
+# progtarg will have all the (one or more) programs that should be linked;
+# linktarg will have the complete set of linked targets, including both
+# .static versions of $(progtarg) and/or shared library object targets.
+
+ifeq ($(makemode),server)
+ doinst := one
+ makemode-instdir := hurd
+ clean := yes
+ targets = $(target)
+ progtarg = $(targets)
+endif
+
+ifeq ($(makemode),utility)
+ doinst := one
+ makemode-instdir := bin
+ clean := yes
+ targets = $(target)
+endif
+
+ifeq ($(makemode),servers)
+ doinst := many
+ makemode-instdir := hurd
+ clean := yes
+ progtarg := $(targets)
+endif
+
+ifeq ($(makemode),utilities)
+ doinst := many
+ makemode-instdir := bin
+ clean := yes
+ progtarg := $(targets)
+endif
+
+ifeq ($(makemode),library)
+
+ linktarg := $(libname).so.$(hurd-version)
+
+ clean := yes
+ cleantarg := $(linktarg) $(addprefix $(libname),.a _p.a _pic.a \
+						 .so .so.$(hurd-version))
+
+ targets := $(libname).a $(libname).so
+ ifneq ($(no_pic),t)
+  targets += $(libname)_pic.a
+ endif
+ ifneq ($(no_prof),t)
+  targets += $(libname)_p.a
+ endif
+
+ ifndef installhdrsubdir
+  installhdrsubdir = hurd
+ endif
+
+else
+
+ ifeq ($(makemode),misc)
+   ifndef doinst
+     doinst := many
+   endif
+   ifeq ($(doinst),one)
+     targets = $(target)
+   endif
+   ifeq (,$(installationdir))
+     ifneq (,$(targets))
+     ?Error subdir Makefile must define installationdir
+     else
+      makemode-instdir := NOINSTALL
+     endif
+   endif
+ else # server/utility modes
+  progtarg := $(filter-out $(special-targets),$(targets))
+  linktarg := $(progtarg) $(progtarg:=.static)
+ endif
+
+endif
+
+ifndef installationdir
+installationdir := $($(makemode-instdir)dir)
+endif
+
+ifeq ($(cleantarg),)
+ cleantarg := $(linktarg)
+endif
+
+
+# This is a hack to give all hurd utilities a default bug-reporting
+# address (defined in libhurdbugaddr/bugaddr.c).
+BUGADDR = $(..)libhurdbugaddr/libhurdbugaddr.a
+BUGADDR_REF = -uargp_program_bug_address
+
+# Standard targets
+
+.PHONY: all install libs relink dist-hook clean objs
+
+# Just build all the object files.
+objs: $(OBJS)
+ifneq ($(no_prof),t)
+objs: $(OBJS:%.o=%_p.o)
+endif
+ifeq ($(makemode),library)
+ifneq ($(no_pic),t)
+objs: $(OBJS:%.o=%_pic.o)
+endif
+endif
+
+# Installation
+ifneq ($(makemode),library)
+
+# not library
+installable := $(sort $(linktarg) $(targets))
+install-targets := $(targets) $(filter $(build-static:=.static),$(linktarg))
+all: $(install-targets)
+install: $(DESTDIR)$(installationdir) $(addprefix $(DESTDIR)$(installationdir)/,$(install-targets))
+$(DESTDIR)$(installationdir):
+	@$(MKINSTALLDIRS) $@
+$(addprefix $(DESTDIR)$(installationdir)/,$(installable)): $(DESTDIR)$(installationdir)/%: %
+	$(INSTALL_PROGRAM) $(INSTALL-$<-ops) $< $@
+else
+
+# library (several parts, library itself, headers, etc.)
+
+all: libs
+install libs: add-to-librecord
+add-to-librecord: $(targets)
+install: $(DESTDIR)$(libdir) $(DESTDIR)$(includedir)/$(installhdrsubdir) $(DESTDIR)$(libdir)/$(libname).so.$(hurd-version) $(addprefix $(DESTDIR)$(libdir)/,$(targets)) $(addprefix $(DESTDIR)$(includedir)/$(installhdrsubdir)/,$(installhdrs))
+
+install-headers: $(DESTDIR)$(includedir)/$(installhdrsubdir) $(addprefix $(DESTDIR)$(includedir)/$(installhdrsubdir)/,$(installhdrs))
+
+$(DESTDIR)$(includedir)/$(installhdrsubdir): $(DESTDIR)$(includedir)
+	@$(MKINSTALLDIRS) $@
+
+# Arrange to have the headers installed locally anytime we build the library.
+# Not quite perfect, but at least it does end up getting done; and once done
+# it never needs to be repeated for a particular header.
+local-installhdrsubdir = include/$(installhdrsubdir)
+INSTALLED_LOCAL_HEADERS := $(installhdrs:%=../$(local-installhdrsubdir)/%)
+$(INSTALLED_LOCAL_HEADERS): ../$(local-installhdrsubdir)/%: Makefile
+	@rm -f $@
+	@test -d $(@D)/ || $(MKINSTALLDIRS) $(@D)
+	echo '#include "../$(dir)/$*"' > $@
+libs: $(INSTALLED_LOCAL_HEADERS)
+# Make sure we make those before compiling, since -MG will be unhelpful.
+$(patsubst %.o,%.d,$(filter %.o,$(OBJS))): $(INSTALLED_LOCAL_HEADERS)
+
+# The installed local headers referring to our own files will use
+# relative names with ../$(dir) and make won't notice that's us.
+../$(dir)/%: % ;
+
+$(addprefix $(DESTDIR)$(libdir)/$(libname),_p.a .a _pic.a): $(DESTDIR)$(libdir)/%: %
+	$(INSTALL_DATA) $< $@
+	$(RANLIB) $@
+
+$(DESTDIR)$(libdir)/$(libname).so.$(hurd-version): $(libname).so.$(hurd-version)
+	$(INSTALL_DATA) $< $@
+
+$(DESTDIR)$(libdir)/$(libname).so: $(DESTDIR)$(libdir)/$(libname).so.$(hurd-version)
+	ln -f -s $(<F) $@
+
+$(addprefix $(DESTDIR)$(includedir)/$(installhdrsubdir)/,$(installhdrs)): $(DESTDIR)$(includedir)/$(installhdrsubdir)/%: %
+	$(INSTALL_DATA) $< $@
+
+# Arrange to have the shared libraries available locally in one single
+# directory.  This is not used by the build system itself, but is just for easy
+# testing.
+local-libdir = lib
+../$(local-libdir)/$(libname).so.$(hurd-version): $(libname).so.$(hurd-version)
+	@test -d $(@D)/ || $(MKINSTALLDIRS) $(@D)
+	ln -sf ../$(dir)/$< $@
+libs: ../$(local-libdir)/$(libname).so.$(hurd-version)
+
+endif
+
+# Provide default.
+install:
+install-headers:
+
+# Making installation directories
+$(addprefix $(DESTDIR),$(installationdirlist)): %:
+	@$(MKINSTALLDIRS) $@
+
+# Building the target
+ifneq ($(makemode),misc)
+
+ifeq ($(doinst),one)
+$(linktarg): $(OBJS) $(library_deps)
+endif
+
+# Determine which sort of library we should link against from whether -static
+# is used in LDFLAGS.
+__libext=.so
+__libext-static=.a
+_libext=$(__libext$(findstring -static,$(LDFLAGS) $($*-LDFLAGS)))
+
+libsubst=$(basename ${lib})$(_libext)
+libsubst-override=${$(notdir $(basename ${lib}))-libsubst}
+_libsubst=${libsubst$(patsubst %,-override,${libsubst-override})}
+
+# Direct the linker where to find shared objects specified in the
+# dependencies of other shared objects it encounters.
+lib_dirs := $(dir $(wildcard ../lib*/lib*.so))
+lpath := -L. $(lib_dirs:%=-L%) $(lib_dirs:%=-Wl,-rpath-link=%)
+
+# Main rule to link executables
+#
+# (prof-depend is a special kind of run not normally used; see the rules
+# below for %.prof_d which uses it.)
+ifeq ($(prof-depend),)
+
+define link-executable
+$(CC) $(lpath) $(CFLAGS) $($*-CFLAGS) $(LDFLAGS) $($*-LDFLAGS) \
+      $(BUGADDR_REF) \
+      -o $@
+endef
+$(progtarg): %$(target-suffix): $(BUGADDR)
+	$(link-executable) \
+              $(filter %.o,$^) \
+	      '-Wl,-(' $(foreach lib,$(filter-out %.o,$^),${_libsubst}) \
+		       $($*-LDLIBS) $(LDLIBS) \
+	      '-Wl,-)'
+
+$(addsuffix .static,$(progtarg)): %$(target-suffix).static: $(BUGADDR)
+	$(link-executable) -static \
+	      '-Wl,-(' $(patsubst %.so,%.a,$^) $($*.static-LDLIBS) $(LDLIBS) \
+	      '-Wl,-)' \
+	      $(and $(filter %/libstore_part.a,$^), $(PARTED_LIBS))
+endif
+
+# Just like above, but tell how to make .prof versions of programs.
+$(addsuffix .prof,$(progtarg)): %$(target-suffix).prof: $(BUGADDR)
+	$(CC) -pg $(CFLAGS) $($*-CFLAGS) $(LDFLAGS) $($*-LDFLAGS) \
+		$(BUGADDR_REF) -static \
+		-o $@ \
+		'-Wl,-(' $^ $($*.static-LDLIBS) $(LDLIBS) \
+		'-Wl,-)'
+
+ifeq ($(makemode),library)
+$(libname).a: $(OBJS)
+	rm -f $(libname).a
+	$(AR) r $@ $^
+	$(RANLIB) $@
+
+$(libname)_p.a: $(patsubst %.o,%_p.o,$(OBJS))
+	rm -f $(libname)_p.a
+	$(AR) r $@ $^
+	$(RANLIB) $@
+
+$(libname)_pic.a: $(patsubst %.o,%_pic.o,$(OBJS))
+	rm -f $(libname)_pic.a
+	$(AR) r $@ $^
+	$(RANLIB) $@
+
+# The shared object needs to be findable in the build directory as
+# libfoo.so.VERSION (i.e. its soname) so that ld finds it when looking
+# for dependencies of other shared libraries.
+# But we also need the libfoo.so name that -lfoo looks for, so
+# we make that a symlink.
+$(libname).so.$(hurd-version): $(patsubst %.o,%_pic.o,$(OBJS)) $(library_deps)
+	$(CC) -shared -Wl,-soname=$@ -o $@ \
+	      $(lpath) $(CFLAGS) $(LDFLAGS) $($(libname).so-LDFLAGS) \
+	      '-Wl,-(' $(filter-out %.map,$^) \
+		       $($(libname).so-LDLIBS) $(LDLIBS) \
+	      '-Wl,-)' $(filter %.map,$^)
+
+$(libname).so: $(libname).so.$(hurd-version)
+	ln -f -s $< $@
+endif
+
+# Providing directory dependencies
+ifneq ($(makemode),library)
+hurd-bug-addr-dir-dep = libhurdbugaddr
+endif
+
+endif # makemode != misc
+
+directory-depend: $(..)$(dir).d
+$(..)$(dir).d: $(srcdir)/Makefile
+	rm -f $@
+	echo $(dir): $(hurd-bug-addr-dir-dep) $(addprefix lib,$(HURDLIBS)) > $@
+
+# TAGS files
+ifneq ($(dir),.)
+ifdef configured
+ifneq ($(OBJS:.o=.d),)
+DEP_SRCS = sed -e 's/^.*://' -e 's/ \\$$//' | tr ' ' '\012'| \
+           sed -n -e 's@^$(srcdir)@&@p' -e 's@^[^/]@&@p' | sort -ur
+TAGSFILES=$(OBJS:.o=.d) $(OTHERTAGS)
+else
+TAGSFILES=$(OTHERTAGS)
+endif
+else
+TAGSFILES=$(SRCS) $(OTHERTAGS)
+endif
+
+TAGS: $(TAGSFILES)
+ifeq ($(strip ($(TAGSFILES))),)
+# no tags, but parent will include this file, so make empty one.
+	> $@
+else
+ifdef DEP_SRCS
+	cat $(OBJS:.o=.d) | $(DEP_SRCS) | etags -o $@ - $(OTHERTAGS)
+else
+	etags -o $@ $^
+endif
+endif
+endif
+
+.PHONY: dist-hook
+ifdef DISTFILES
+dist-hook: dist.tar
+else
+# Don't bother creating an empty tarball.
+dist-hook:
+endif
+
+# FORCE is needed as $(dist-version) can change between two invocations.
+dist.tar: $(DISTFILES) FORCE
+	@[ x$(dist-version) != x ] || \
+	  { echo >&2 Can\''t make $@ without dist-version set.' && \
+	    false; }
+	tar -c -f $@ --files-from=/dev/null
+# Every file from $(DISTFILES) can exist either in the build directory or in
+# the source directory, but that must not affect the name it gets in dist.tar.
+	for f in $(DISTFILES); do \
+	  if test -e "$$f"; then d=.; else d=$(srcdir); fi && \
+	  if test "$(dir)" = "."; then subdir=""; else subdir="$(dir)/"; fi && \
+	  tar --append -f $@ --owner=0 --group=0 \
+	    --transform="s%^%$(dist-version)/$$subdir%" -C "$$d" "$$f" \
+	  || exit $$?; \
+	done
+
+# Cleaning
+clean:
+	rm -f dist.tar
+ifeq ($(clean),yes)
+	rm -f *.d *.o *Server.c *User.c *_S.h *_U.h *.[su]defsi *.stamp \
+	      $(cleantarg)
+endif
+
+relink:
+ifeq ($(clean),yes)
+	rm -f $(linktarg)
+endif
+
+# Subdependencies
+
+# We record which libraries have been built in this run in the file
+# $(librecord).  That file contains a series of lines like
+# `../libfoo/libfoo.a ../libfoo/libfoo.so: ; /bin/true'
+# that serve to inhibit the pattern rule which follows from doing anything.
+# Above, when we make `libs' in library directories, we always append
+# to $(librecord), so that future make invocations don't bother repeating
+# the effort.
+
+# if this is the first level, then set librecord.  Otherwise, read it in.
+#ifeq ($(MAKELEVEL),0)
+#librecord:=/tmp/hurd-make-$(shell echo $$$$)
+#export librecord
+#else
+#include $(librecord)
+#endif
+
+# How to create it.
+#$(librecord):
+#	touch $(librecord)
+
+# `libs' target depends on this.
+#add-to-librecord:
+#	echo $(addprefix ../$(dir)/,$(targets)) : \; /bin/true >> $(librecord)
+
+# Building libraries from other directories.  We force both libraries to be
+# built if either is, because it will use the appropriate one even if the other
+# is specified in someone's dependency list.
+#../%.a ../%.so: FORCE
+#	$(MAKE) -C $(dir $@) libs
+
+# Tell make where to find other -l libraries that we use
+vpath libutil.% $(libdir)/
+vpath libpthread.% $(libdir)/
+vpath libbz2.% $(libdir)/
+vpath libz.% $(libdir)/
+
+# The libstore_%.a files fetch symbols from libstore.so
+ifneq ($(dir),libstore)
+$(boot-store-types:%=../libstore/libstore_%.a): ../libstore/libstore.so
+endif
+
+# Default rules to build PIC object files.
+%_pic.o: %.c
+	$(COMPILE.c) $< -DPIC -fPIC -o $@
+
+%_pic.o: %.S
+	$(COMPILE.S) $< -DPIC -o $@
+
+# Default rules to build profiled object files.
+%_p.o: %.c
+	$(COMPILE.c)  $< -DPROF -pg -o $@
+
+%_p.o: %.S
+	$(COMPILE.S) $< -DPROF -o $@
+
+# How to build RPC stubs
+
+# We always need this setting, because libc does not include the bogus names.
+MIGCOMFLAGS := -subrprefix __
+
+# User settable variables:
+#	mig-sheader-prefix prepend to foo_S.h for name of foo.defs stub header
+# 	MIGSFLAGS	   flags to CPP when building server stubs and headers
+#	foo-MIGSFLAGS	   same, but only for interface `foo'
+# 	MIGCOMSFLAGS	   flags to MiG when building server stubs and headers
+#	foo-MIGCOMSFLAGS   same, but only for interface `foo'
+# 	MIGUFLAGS	   flags to CPP when building user stubs and headers
+#	foo-MIGUFLAGS	   same, but only for interface `foo'
+# 	MIGCOMUFLAGS	   flags to MiG when building user stubs and headers
+#	foo-MIGCOMUFLAGS   same, but only for interface `foo'
+#	CPPFLAGS	   flags to CPP
+
+# Implicit rules for building server and user stubs from mig .defs files.
+
+# These chained rules could be (and used to be) single rules using pipes.
+# But it's convenient to be able to explicitly make the intermediate
+# files when you want to deal with a problem in the MiG stub generator.
+
+%.sdefs.stamp: %.defs
+	$(CPP) $(CPPFLAGS) $(MIGSFLAGS) $($*-MIGSFLAGS) -DSERVERPREFIX=S_ \
+	  -DHURD_SERVER=1 \
+	  -MD -MF $*.sdefs.d.new \
+	  $< -o $*.sdefsi
+	sed -e 's#[^:]*:#$*Server.c $(mig-sheader-prefix)$*_S.h:#' \
+	  < $*.sdefs.d.new > $*.sdefs.d
+	rm $*.sdefs.d.new
+	touch $@
+%.sdefsi %.sdefs.d: %.sdefs.stamp
+	:
+
+%Server.stamp: %.sdefsi
+	$(MIGCOM) $(MIGCOMFLAGS) $(MIGCOMSFLAGS) $($*-MIGCOMSFLAGS) \
+		    -sheader $(mig-sheader-prefix)$*_S.h -server $*Server.c \
+		    -user /dev/null -header /dev/null < $<
+	touch $@
+$(mig-sheader-prefix)%_S.h %Server.c: %Server.stamp
+	:
+
+%.udefs.stamp: %.defs
+	$(CPP) $(CPPFLAGS) $(MIGUFLAGS) $($*-MIGUFLAGS) \
+	  -MD -MF $*.udefs.d.new \
+	  $< -o $*.udefsi
+	sed -e 's#[^:]*:#$*User.c $*_U.h:#' \
+	  < $*.udefs.d.new > $*.udefs.d
+	rm $*.udefs.d.new
+	touch $@
+%.udefsi %.udefs.d: %.udefs.stamp
+	:
+
+%User.stamp: %.udefsi
+	$(MIGCOM) $(MIGCOMFLAGS) $(MIGCOMUFLAGS) $($*-MIGCOMUFLAGS) < $< \
+		  -user $*User.c -server /dev/null -header $*_U.h
+	touch $@
+%_U.h %User.c: %User.stamp
+	:
+
+# Where to find .defs files.
+vpath %.defs $(top_srcdir)/hurd
+
+# These we want to find in the libc include directory...
+mach_defs_names = bootstrap exc mach mach4 \
+	mach_host mach_port mach_timer_reply memory_object \
+	memory_object_default notify \
+	gnumach \
+	task_notify \
+
+mach_i386_defs_names = mach_i386
+mach_debug_defs_names = mach_debug
+device_defs_names = dev_forward device device_reply device_request
+
+mach_defs = $(addsuffix .defs,$(mach_defs_names))
+mach_i386_defs = $(addsuffix .defs,$(mach_i386_defs_names))
+mach_debug_defs = $(addsuffix .defs,$(mach_debug_defs_names))
+device_defs = $(addsuffix .defs,$(device_defs_names))
+
+$(mach_defs): %.defs:
+	echo '#include <mach/$@>' > $@
+$(mach_i386_defs): %.defs:
+	echo '#include <mach/machine/$@>' > $@
+$(mach_debug_defs): %.defs:
+	echo '#include <mach_debug/$@>' > $@
+$(device_defs): %.defs:
+	echo '#include <device/$@>' > $@
+
+
+FORCE:
+
+
+# How to build automatic dependencies
+
+# Don't include dependencies if $(no_deps) is set; the master makefile
+# does this for clean and other such targets that don't need
+# dependencies.  That then avoids rebuilding dependencies.
+
+ifneq ($(no_deps),t)
+
+# The MIG stubs depend on their definition files.
+# These lines assume that every Makefile that uses a foo_S.h or foo_U.h file
+# also mentions the associated fooServer.o or fooUser.o file.
+-include $(subst Server.o,.sdefs.d,$(filter %Server.o,$(OBJS))) /dev/null
+-include $(subst User.o,.udefs.d,$(filter %User.o,$(OBJS))) /dev/null
+
+ifneq ($(prof-depend),t)
+ifneq ($(no_prof),t)
+-include $(addsuffix .prof_d,$(progtarg)) /dev/null
+endif
+endif
+
+# For each .o file we need a .d file.
+-include $(subst .o,.d,$(filter %.o,$(OBJS))) /dev/null
+
+endif
+
+# Here is how to build those dependency files
+
+%.prof_d: $(srcdir)/Makefile
+	$(MAKE) $* prof-depend=t
+
+ifeq ($(prof-depend),t)
+$(progtarg): %: FORCE
+	rm -f $@.prof_d
+	echo $@.prof: $(subst .so,_p.a,$(subst .o,_p.o,$(filter-out FORCE,$+))) > $@.prof_d
+endif
+
+define make-deps
+set -e; $(CC) $(CFLAGS) $(CPPFLAGS) -M -MG $<  | \
+sed > $@.new -e 's%$*\.o:%$*.o $*_pic.o $*_p.o $@: $($*-DEPS)%' \
+	     -e 's% [^ ]*/gcc-lib/[^ ]*\.h%%g'
+mv -f $@.new $@
+endef
+
+# Here is how to make .d files from .c files
+%.d: %.c; $(make-deps)
+# Here is how to make .d files from .S files
+%.d: %.S; $(make-deps)
+
+# .s files don't go through the preprocessor, so we do this
+# This rule must come *after* the genuine ones above, so that
+# make doesn't build a .s file and then make an empty dependency
+# list.
+%.d: %.s
+	echo '$*.o: $<' > $@
+
+# Rule to make executable shell scripts from .sh files.
+%: %.sh $(..)config.make
+	sed -e 's/STANDARD_HURD_VERSION_\(.[^_]*\)_/\1 (GNU Hurd) $(package-version)/' < $< > $@
+	chmod +x $@

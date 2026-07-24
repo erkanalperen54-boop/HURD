@@ -1,0 +1,157 @@
+/* Definitions for the filesystem control interface
+   Copyright (C) 1992,93,94,95,96,97, 2002,13 Free Software Foundation
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful, 
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+subsystem fsys 22000;
+
+#include <hurd/hurd_types.defs>
+
+/* When modifying this file in any way, please remember to keep
+   fsys_reply.defs up to date.  */
+
+/* Note that libdiskfs/start-translator-long.c depends silently on the 
+   definition of fsys_startup below. */
+
+#ifdef FSYS_IMPORTS
+FSYS_IMPORTS
+#endif
+
+INTR_INTERFACE
+
+/* Sent by filesystem on its bootstrap port upon startup.
+   REALNODE is the node this filesystem is the translator for,
+   opened with flags FLAGS (O_NOTRANS is assumed even if not
+   provided). */
+routine fsys_startup (
+	bootstrap: mach_port_t;
+	RPT
+	openflags: int;
+	control_port: mach_port_send_t;
+	out realnode: mach_port_send_t);
+
+/* Filesystem should go away.  Bye.  */
+routine fsys_goaway (
+	fsys: fsys_t;
+	RPT
+	flags: int);
+
+/* Return a file to the root of the filesystem.
+   FLAGS are as for dir_lookup (but O_CREAT and O_EXCL are not
+   meaningful).  DO_RETRY, RETRY_NAME, and RESULT are as
+   for dir_lookup.  The port should be authenticated with GEN_UIDS
+   and GEN_GIDS (except, of course, for FS_RETRY_REAUTH and 
+   FS_RETRY_MAGICAL).  DOTDOT_NODE is an unauthenticated port for the
+   directory in which this root is located.  */ 
+routine fsys_getroot(
+	fsys: fsys_t;
+	RPT
+#ifdef	FSYS_GETROOT_UREPLY
+	ureplyport ureply: mig_reply_port_t;
+#endif
+	dotdot_node: mach_port_send_t;
+	gen_uids: idarray_t;
+	gen_gids: idarray_t;
+	flags: int;
+	out do_retry: retry_type;
+	out retry_name: string_t;
+	out file: mach_port_send_t);
+
+/* Get a file given a file handle (see file_getfh).  */
+routine fsys_getfile (
+	fsys: fsys_t;
+	RPT
+	gen_uids: idarray_t;
+	gen_gids: idarray_t;
+	filehandle: data_t;
+	out file: mach_port_send_t);
+
+/* Sync a filesystem.  Args are the same as for file_syncfs in fs.defs. */
+routine fsys_syncfs (
+	fsys: fsys_t;
+	RPT
+	wait: int;
+	do_children: int);
+
+/* Pass a server-specific options string.  This usually includes flags
+   similar to command line options, e.g., --readonly, or --sync=30.  */ 
+routine fsys_set_options (
+	fsys: fsys_t;
+	RPT
+        options: data_t;
+	do_children: int);
+
+/* The following two calls are only implemented by bootstrap filesystems.  */
+
+/* This is called by bootstrap translators to get the privileged host and device
+   master ports from the bootstrap filesystem.  */
+routine fsys_getpriv (
+	fsys: fsys_t;
+	RPT
+	out host_priv: mach_port_send_t;
+	out device_master: mach_port_send_t;
+	out fstask: mach_port_send_t);
+
+/* This is called by the startup translator to provide the bootstrap filesystem
+   with the process_t port for its own task, and an auth port.  */
+routine fsys_init (
+	fsys: fsys_t;
+	sreplyport reply_port: sreply_port_t;
+	proc_server: mach_port_send_t;
+	auth_handle: auth_t);
+
+/* Ask SERVER to provide fsys translation service for us.  REQUESTOR is
+   the bootstrap port supplied to the original translator, and ARGV are
+   the command line arguments.  If the recipient accepts the request, he
+   (or some delegate) should send fsys_startup to REQUESTOR to start the
+   filesystem up.  */
+routine fsys_forward (
+	server: mach_port_t;
+	RPT
+	requestor: mach_port_send_t;
+	argv: data_t);
+
+/* Return the options describing the operation of the receiving
+   filesystem (sutiable for fsys_set_options).  */
+routine fsys_get_options (
+	server: fsys_t;
+	RPT
+	out options: data_t, dealloc);
+
+/* Return any active child translators.  NAMES is an argz vector
+   containing file names relative to the root of the translator.
+   CONTROLS is an array containing the corresponding control ports.
+   Note that translators are bound to nodes, and nodes can have zero
+   or more links in the file system, therefore there is no guarantee
+   that a translators name refers to an existing link in the file
+   system.  */
+routine fsys_get_children (
+	server: fsys_t;
+	RPT
+	out names: data_t;
+	out controls: portarray_t);
+
+/* Return information about the source of the translator.  If the
+   concept of a source is applicable, SOURCE should refer to the
+   source of the translator and should be a description considered
+   appropriate in the context of the translator.  For example, if the
+   translator is a filesystem residing on a block device, then SOURCE
+   should be the file name of the underlying block device.  */
+routine fsys_get_source (
+	server: fsys_t;
+	RPT
+	out source: string_t);

@@ -1,0 +1,3 @@
+type int64_t = MACH_MSG_TYPE_INTEGER_64;
+type int32_t = MACH_MSG_TYPE_INTEGER_32;
+type mach_port_t = MACH_MSG_TYPE_COPY_SEND;

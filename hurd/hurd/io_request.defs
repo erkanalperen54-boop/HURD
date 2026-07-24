@@ -1,0 +1,180 @@
+/* Definitions for generic IO interface
+   Copyright (C) 1991,93,94,95,2002 Free Software Foundation, Inc.
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+subsystem io_request 21000;
+
+/* These functions are user-side stubs for the functions in io.defs;
+   all the comments there apply exactly to here. */
+
+#include <hurd/hurd_types.defs>
+
+#ifdef IO_IMPORTS
+IO_IMPORTS
+#endif
+
+type reply_port_t = MACH_MSG_TYPE_MAKE_SEND_ONCE | polymorphic
+	ctype: mach_port_t;
+
+simpleroutine io_write_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		data: data_t;
+		offset: loff_t);
+
+simpleroutine io_read_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		offset: loff_t;
+		amount: vm_size_t);
+
+simpleroutine io_seek_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		offset: loff_t;
+		whence: int);
+
+simpleroutine io_readable_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_set_all_openmodes_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		newbits: int);
+
+simpleroutine io_get_openmodes_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_set_some_openmodes_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		bits_to_set: int);
+
+simpleroutine io_clear_some_openmodes_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		bits_to_clear: int);
+
+simpleroutine io_async_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		notify_port: mach_port_send_t);
+
+simpleroutine io_mod_owner_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		owner: pid_t);
+
+simpleroutine io_get_owner_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_get_icky_async_id_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_select_request (
+		io_object: io_t;
+		ureplyport reply: mach_port_make_send_t;
+		select_type: int);
+
+simpleroutine io_stat_request (
+		stat_object: io_t;
+		reply: reply_port_t);
+
+/* io_reauthenticate is a simpleroutine already. */
+skip;
+
+simpleroutine io_restrict_auth_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		uids: idarray_t;
+		gids: idarray_t);
+
+simpleroutine io_duplicate_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_server_version_request (
+		vers_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_map_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_map_cntl_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_get_conch_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_release_conch_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_eofnotify_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_prenotify_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		write_start: vm_offset_t;
+		write_end: vm_offset_t);
+
+simpleroutine io_postnotify_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		write_start: vm_offset_t;
+		write_end: vm_offset_t);
+
+simpleroutine io_readnotify_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_readsleep_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_sigio_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_pathconf_request (
+		io_object: io_t;
+		reply: reply_port_t;
+		name: int);
+
+simpleroutine io_identity_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_revoke_request (
+		io_object: io_t;
+		reply: reply_port_t);
+
+simpleroutine io_select_timeout_request (
+		io_object: io_t;
+		ureplyport reply: mach_port_make_send_t;
+		timeout: timespec_t;
+		select_type: int);

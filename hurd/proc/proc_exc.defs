@@ -1,0 +1,52 @@
+/* This special version of exc.defs exists because the proc server
+   needs to do the call with special options.
+   Its RPC interface is identical to <mach/exc.defs>. */
+
+/*
+ * Mach Operating System
+ * Copyright (c) 1991,1990,1989,1988,1987 Carnegie Mellon University
+ * All Rights Reserved.
+ *
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation is hereby granted, provided that both the copyright
+ * notice and this permission notice appear in all copies of the
+ * software, derivative works or modified versions, and any portions
+ * thereof, and that both notices appear in supporting documentation.
+ *
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+ * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+ * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+ *
+ * Carnegie Mellon requests users of this software to return to
+ *
+ *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+ *  School of Computer Science
+ *  Carnegie Mellon University
+ *  Pittsburgh PA 15213-3890
+ *
+ * any improvements or extensions that they make and grant Carnegie Mellon
+ * the rights to redistribute these changes.
+ */
+
+subsystem proc_exc 2400;
+
+#include <mach/std_types.defs>
+
+ServerPrefix S_;
+import "mig-decls.h";
+
+type exception_t = mach_port_copy_send_t
+	cusertype: mach_port_t
+	intran: exc_t begin_using_exc_port (exception_t)
+	intranpayload: exc_t begin_using_exc_payload
+	destructor: end_using_exc (exc_t);
+
+routine proc_exception_raise (
+	exception_port: exception_t;
+	replyport reply: mach_port_poly_t;
+	msgoption flags: integer_t;
+	thread: mach_port_t;
+	task: mach_port_t;
+	exception: integer_t;
+	code: integer_t;
+	subcode: long_integer_t);

@@ -1,0 +1,67 @@
+/* 
+ * Mach Operating System
+ * Copyright (c) 1993 Carnegie Mellon University
+ * All Rights Reserved.
+ * 
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation is hereby granted, provided that both the copyright
+ * notice and this permission notice appear in all copies of the
+ * software, derivative works or modified versions, and any portions
+ * thereof, and that both notices appear in supporting documentation.
+ * 
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+ * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+ * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+ * 
+ * Carnegie Mellon requests users of this software to return to
+ * 
+ *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+ *  School of Computer Science
+ *  Carnegie Mellon University
+ *  Pittsburgh PA 15213-3890
+ * 
+ * any improvements or extensions that they make and grant Carnegie Mellon 
+ * the rights to redistribute these changes.
+ */
+#ifndef	_MACH_SA_SYS_TYPES_H_
+#define	_MACH_SA_SYS_TYPES_H_
+
+#include <mach/machine/vm_types.h>
+#include <stdint.h>
+#include <stddef.h> /* for size_t and NULL */
+
+typedef	unsigned short	dev_t;		/* device id */
+typedef	unsigned long	gid_t;		/* group id */
+typedef	unsigned long	ino_t;		/* inode number */
+typedef	unsigned short	mode_t;		/* permissions */
+typedef	unsigned short	nlink_t;	/* link count */
+typedef	natural_t	off_t;		/* file offset */
+typedef	unsigned long	uid_t;		/* user id */
+
+
+/* Symbols allowed but not required by POSIX */
+
+#ifndef _TIME_T
+#define	_TIME_T
+typedef	unsigned long long	time_t;
+#endif
+
+/* Symbols not allowed by POSIX */
+#ifndef _POSIX_SOURCE
+
+/*
+ * Common type definitions that lots of old files seem to want.
+ */
+
+typedef	unsigned char	u_char;		/* unsigned char */
+typedef	unsigned short	u_short;	/* unsigned short */
+typedef	unsigned int	u_int;		/* unsigned int */
+typedef unsigned long	u_long;		/* unsigned long */
+
+#define	major(i)	(((i) >> 8) & 0xFF)
+#define	minor(i)	((i) & 0xFF)
+#define	makedev(i,j)	((((i) & 0xFF) << 8) | ((j) & 0xFF))
+
+#endif /* _POSIX_SOURCE */
+
+#endif	/* _MACH_SA_SYS_TYPES_H_ */

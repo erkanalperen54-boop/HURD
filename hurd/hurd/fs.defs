@@ -1,0 +1,401 @@
+/* Definitions for the filesystem interface.
+
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2002, 2010, 2014-2019
+   Free Software Foundation, Inc.
+
+   This file is part of the GNU Hurd.
+
+   The GNU Hurd is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   The GNU Hurd is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with the GNU Hurd.  If not, see <http://www.gnu.org/licenses/>.  */
+
+/* All these objects also implement the generic IO facilities. */
+
+subsystem fs 20000;
+
+#include <hurd/hurd_types.defs>
+
+#ifdef FILE_IMPORTS
+FILE_IMPORTS
+#endif
+
+/* Operations supported on all files */
+
+INTR_INTERFACE
+
+/* Overlay a task with a file.  Necessary initialization, including
+   authentication changes associated with set[ug]id execution must be
+   handled by the filesystem.  Filesystems normally implement this by
+   using exec_newtask or exec_loadtask as appropriate.
+   Deprecated: use file_exec_paths instead.  */
+routine file_exec (
+	exec_file: file_t;
+	RPT
+	exec_task: task_t;
+	flags: int;
+	argv: data_t SCP;
+	envp: data_t SCP;
+	fdarray: portarray_t SCP;
+	portarray: portarray_t SCP;
+	intarray: intarray_t SCP;
+	deallocnames: mach_port_name_array_t SCP;
+	destroynames: mach_port_name_array_t SCP);
+
+/* Change owner and/or group */
+routine file_chown (
+	chown_file: file_t;
+	RPT
+	new_owner: uid_t;
+	new_group: gid_t);
+
+/*
+Whan that Aprill with hith thoureth thoote
+The droghte of March hath perthed to the roote,
+And bathed every veyne in thwith licour,
+Of which vertu engendred is the flour;
+Whan Zephiruth eek with hith thweete breeth
+Inthpired hath in every holt and heeth
+The tender croppeth, and the yonge thonne
+Hath in the Ram his halve courth yronne,
+And thmale foweleth maken melodye,
+That thlepen all the nyght with open ye
+(Tho Priketh hem Nature in hir corageth),
+Thanne longen folk to goon on pligrimageth,
+And palmereth for to theken thtraunge thtrondeth,
+To ferne halweth, kowthe in thondry londeth:
+And thpethially, from every thireth ende
+Of Engelond to Cantebury they wende,
+The hooly blithful martyr for to theke,
+That hem hath holpen whan that they were theeke.
+*/
+routine file_chauthor (
+	chauth_file: file_t;
+	RPT
+	new_author: uid_t);
+
+/* Change mode bits */
+routine file_chmod (
+	chmod_file: file_t;
+	RPT
+	new_mode: mode_t);
+
+/* Change file flags */
+routine file_chflags (
+	chflags_file: file_t;
+	RPT
+	new_flags: int);
+
+/* Change access and modify times */
+/* If the microseconds value is -1 (all bits on) then the time should be
+   set to the current time and the remainder of the time_value_t ignored. */
+routine file_utimes (
+	utimes_file: file_t;
+	RPT
+	new_atime: time_value_t;
+	new_mtime: time_value_t);
+
+/* Change the size of the file.  If the size increases, new blocks are
+   zero-filled.  After successful return, it is safe to reference mapped
+   areas of the file up to NEW_SIZE.  */
+routine file_set_size (
+	trunc_file: file_t;
+	RPT
+	new_size: loff_t);
+
+/* Apply/manipulate advisory lock */
+routine file_lock (
+	lock_file: file_t;
+	RPT
+	flags: int);
+
+/* Return current lock status.  Mystatus tells what kind of lock the
+   caller has; otherstatus tells what kind of lock anyone has
+   (including the caller).  */
+routine file_lock_stat (
+	lock_file: file_t;
+	RPT
+	out mystatus: int;
+	out otherstatus: int);
+
+/* Find out what kind of access this file permits the current user
+   (regardless of the current open modes for this port).  ALLOWED is a
+   bitwise OR of O_READ, O_WRITE, and O_EXEC.  This is not necessarily the
+   same as what an open or exec would allow; O_EXEC is set for root even if
+   no executable bits are on (in which case file_exec_paths should fail)
+   and O_WRITE is set a directory can be modified, even though it can't be
+   written directly.  */
+routine file_check_access (
+	file: file_t;
+	RPT
+	out allowed: int);
+
+/* Notice changes to file FILE.  Send notification messages (see
+   fs_notify.defs) to PORT as they occur. */
+routine file_notice_changes (
+	file: file_t;
+	RPT
+	port: mach_port_send_t);
+
+/* Return control port for this filesystem */
+routine file_getcontrol (
+	file: file_t;
+	RPT
+	out control: mach_port_send_t);
+
+/* Return filesystem status */
+routine file_statfs (
+	file: file_t;
+	RPT
+	out info: fsys_statfsbuf_t);
+
+/* Sync the individual file.  If OMIT_METADATA is set, then it is only
+necessary for the server to updated the actual contents of the file,
+not any associated metadata. */
+routine file_sync (
+	file: file_t;
+	RPT
+	wait: int;
+	omit_metadata: int);
+
+/* Sync the entire filesystem */
+routine file_syncfs (
+	file: file_t;
+	RPT
+	wait: int;
+	do_children: int);
+
+/* Return information on the storage used to hold this file.  See the comment
+   for enum file_storage_class in <hurd/hurd_types.h> the details.  */
+routine file_get_storage_info (
+	file: file_t;
+	RPT
+	out ports: portarray_t, dealloc;
+	out ints: intarray_t, dealloc;
+	out offsets: off_array_t, dealloc;
+	out data: data_t, dealloc);
+
+/* Return the node for hard links to this potentially translated file.
+   This returns a potentially unauthenticated node.  */
+routine file_getlinknode (
+	file: file_t;
+	RPT
+	out linknode: mach_port_send_t);
+
+/* Return a file handle for this file.  This can be used by NFS and such.
+   It is not guaranteed that this call will work...if it doesn't, then this
+   filesystem cannot be NFS mounted.  */
+routine file_getfh (
+	file: file_t;
+	RPT
+	out filehandle: data_t, dealloc);
+
+/* Operations supported on directories */
+
+/* Translate a file name, following all symlinks.  Upon return, if DO_RETRY
+   is FS_RETRY_MAGICAL then RETRY_NAME specifies what to do, the list
+   of possibilities is documented in <hurd/hurd_types.h>; if
+   FS_RETRY_REAUTH, then RESULT should be reauthenticated before being
+   used.  If RETRY_NAME is the empty string and the retry type is
+   FS_RETRY_NORMAL, then no further dir_lookup calls are required;
+   RESULT is the port to use.  Otherwise the dir_lookup call should be
+   repeated, sent to RESULT (or the reauthenticated port) with
+   RETRY_NAME passed for FILE_NAME.  This call is required to be
+   supported by all files (even non-directories) if the filename is
+   null, and should function in that case as a re-open of the file.  */
+routine dir_lookup (
+	start_dir: file_t;
+	RPT
+	file_name: string_t;
+	flags: int;
+	mode: mode_t;
+	out do_retry: retry_type;
+	out retry_name: string_t;
+	out result: mach_port_send_t);
+
+/* Read entries from the directory.  Each entry is identified
+   by an index number starting at 0 and running through the file.  This
+   call fetches NENTRIES (or any convenient number if NENTRIES is -1)
+   entries starting at ENTRY, returning a series of struct dirent in DATA.
+   Note that due to the variable-size D_NAME field, D_RECLEN has to be used to
+   jump from one struct dirent to the other.
+   The number of entries successfully read is returned in AMOUNT.  If ENTRY
+   is bigger than the index of the last entry, then 0 is returned in
+   AMOUNT.  If BUFSIZE is nonzero, never return more than BUFSIZE bytes of
+   data regardless.  */
+routine dir_readdir (
+	dir: file_t;
+	RPT
+	out data: data_t, dealloc[];
+	entry: int;
+	nentries: int;
+	bufsiz: vm_size_t;
+	out amount: int);
+
+/* Create directory */
+routine dir_mkdir (
+	directory: file_t;
+	RPT
+	name: string_t;
+	mode: mode_t);
+
+/* Remove directory */
+routine dir_rmdir (
+	directory: file_t;
+	RPT
+	name: string_t);
+
+/* Remove non-directory */
+routine dir_unlink (
+	directory: file_t;
+	RPT
+	name: string_t);
+
+/* Create a hard link.
+
+   If DIR and FILE are not implemented by the same filesystem,
+   EXDEV should be returned.  If the two filesystems, however can
+   inter-operate and guarantee the appropriate Posix semantics, they can
+   communicate by a private protocol and allow hard links between them.
+   If EXCL is set, then fail if NAME already exists in DIR. */
+routine dir_link (
+	dir: file_t;
+	RPT
+	file: file_t;
+	name: string_t;
+	excl: int);
+
+/* Rename file -- comments similar to those for dir_link apply here
+   about EXDEV.  If EXCL is set, then fail if NEWNAME already exists in
+   NEWDIRECTORY.  */
+routine dir_rename (
+	olddirectory: file_t;
+	RPT
+	oldname: string_t;
+	newdirectory: file_t;
+	newname: string_t;
+        excl: int);
+
+/* Create a new file without linking it into the filesystem.  You
+   still must have write permission on the specified directory, even
+   though it will not actually be written.  Return in *newnode a port
+   to the file.  Flags are the same as for dir_lookup, but
+   O_CREAT and O_TRUNC are assumed even if not specified.  */
+routine dir_mkfile (
+	directory: file_t;
+	RPT
+	flags: int;
+	mode: mode_t;
+	out newnode: mach_port_send_t);
+
+/* Notice changes to directory DIR.  Send directory change notifications
+   (see fs_notify.defs) to PORT as they occur.  */
+routine dir_notice_changes (
+	directory: file_t;
+	RPT
+	port: mach_port_send_t);
+
+/* To get or set the translator currently running on a file, use
+   file_set_translator, file_get_translator, or
+   file_get_translator_cntl on a port gotten with the
+   FS_LOOKUP_NOTRANS flag to dir_lookup.  You can send these RPCs
+   to a port to a translated node (looked up without
+   FS_LOOKUP_NOTRANS) to stack a new translator on top of the existing
+   one.  */
+
+/* Set a translator for future lookups to a file.
+
+   PASSIVE is the passive translator;
+   ACTIVE is the active translator.
+
+   The FLAGS are FS_TRANS_*, defined in <hurd/hurd_types.h>.
+   OLDFLAGS are sent in an fsys_goaway to an existing active translator
+     if there is one and it is to be killed. */
+routine file_set_translator (
+	file: file_t;
+	RPT
+	passive_flags: int;
+	active_flags: int;
+	oldtrans_flags: int;
+	passive: data_t SCP;
+	active: mach_port_send_t);
+
+/* Return the stored permanent translator for this file.  */
+routine file_get_translator (
+	file: file_t;
+	RPT
+	out translator: data_t, dealloc);
+
+/* Return the translator control port to the
+   active translator (if any) for this file.  */
+routine file_get_translator_cntl (
+	file: file_t;
+	RPT
+	out translator_cntl: mach_port_send_t);
+
+/* Return the options describing the way the receiving filesystem is
+   running.  (Suitable as an arg for fsys_set_options). */
+routine file_get_fs_options (
+	file: file_t;
+	RPT
+	out options: data_t, dealloc);
+
+/* Return a new file, NEW_FILE, with the same semantics as FILE, but
+   with lookups of `..' (if FILE is a directory) redirected to PARENT.  */
+routine file_reparent (
+	file: file_t;
+	RPT
+	parent: mach_port_t;
+	out new_file: mach_port_send_t);
+
+skip;	/* Was: file_get_children.  */
+skip;	/* Was: file_get_source.  */
+
+
+/* Overlay a task with a file.  Necessary initialization, including
+   authentication changes associated with set[ug]id execution must be
+   handled by the filesystem.  Filesystems normally implement this by
+   using exec_newtask or exec_loadtask as appropriate.  */
+routine file_exec_paths (
+	exec_file: file_t;
+	RPT
+	exec_task: task_t;
+	flags: int;
+	path: string_t;
+	abspath: string_t;
+	argv: data_t SCP;
+	envp: data_t SCP;
+	fdarray: portarray_t SCP;
+	portarray: portarray_t SCP;
+	intarray: intarray_t SCP;
+	deallocnames: mach_port_name_array_t SCP;
+	destroynames: mach_port_name_array_t SCP);
+
+/* Change access and modify times with nanosecond precision */
+/* If the nanoseconds value is UTIME_NOW then the time should be
+   set to the current time and the remainder of the time_value_t ignored.
+   If the nanoseconds value is UTIME_OMIT then the time is ignored. */
+routine file_utimens (
+	utimes_file: file_t;
+	RPT
+	new_atime: timespec_t;
+	new_mtime: timespec_t);
+
+/* Do fcntl type locking on FILE. CMD is from the set F_GETLK64,
+ F_SETLK64, F_SETLKW64. FLOCK64 is passed by the user and is as
+ defined by <fcntl.h>. RENDEZVOUS is MACH_PORT_NULL for per opened
+ file locking and !MACH_PORT_NULL for per process file locking */
+routine file_record_lock (
+       file: file_t;
+       RPT
+       cmd: int;
+       inout flock64: flock_t;
+       rendezvous: mach_port_send_t);

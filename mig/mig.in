@@ -1,0 +1,164 @@
+#!/bin/sh
+#
+# Mach Operating System
+# Copyright (c) 1991,1990 Carnegie Mellon University
+# All Rights Reserved.
+#
+# Permission to use, copy, modify and distribute this software and its
+# documentation is hereby granted, provided that both the copyright
+# notice and this permission notice appear in all copies of the
+# software, derivative works or modified versions, and any portions
+# thereof, and that both notices appear in supporting documentation.
+#
+# CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+# CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+# ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+#
+# Carnegie Mellon requests users of this software to return to
+#
+#  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+#  School of Computer Science
+#  Carnegie Mellon University
+#  Pittsburgh PA 15213-3890
+#
+# any improvements or extensions that they make and grant Carnegie Mellon
+# the rights to redistribute these changes.
+#
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+libexecdir=@libexecdir@
+libexecdir_rel=$(perl -MFile::Spec -e 'print File::Spec->abs2rel("'"$libexecdir"'","'"$bindir"'")')
+bindir_real=$(dirname "$0")
+bindir_real=$(cd "$bindir_real"/ && pwd)
+libexecdir=$bindir_real/$libexecdir_rel
+migcom=${MIGDIR-$libexecdir}/${MIGCOM-@MIGCOM@}
+
+# The expansion of TARGET_CC might refer to ${CC}, so make sure it is defined.
+default_cc="@CC@"
+CC="${CC-${default_cc}}"
+default_cpp="@TARGET_CC@ -E -x c"
+cpp="${CPP-${default_cpp}}"
+
+cppflags=
+migflags=
+files=
+
+
+# prj_quote_sh() is from Paul Jarc's prjlibs available at
+# <URL:http://code.dogmap.org/prjlibs/>.
+
+prj_quote_sh() {
+  case $1 in
+    '') echo "''";;
+    *[!%+,./0123456789:@ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-]*) sed "
+s/'/'\\\\''/g
+1s/^/'/
+\$s/\$/'/
+" <<EOT
+$1
+EOT
+      ;;
+    -*) cat <<EOT
+$1
+EOT
+      ;;
+    *) echo "$1";;
+  esac
+}
+
+
+# If an argument to this shell script that will be passed to migcom contains
+# whitespace, then we will screw up: migcom will see it as multiple arguments.
+# Arguments that are only passed to $cpp are fine, though.
+# `mig -DFOO=B\ A\ R ...' works.
+#
+# As a special hack, if -i is specified first we don't pass -user to migcom.
+# We do use the -user argument for the dependencies.
+# In this case, the -user argument can have whitespace.
+
+until [ $# -eq 0 ]
+do
+    case $1 in
+	--version ) echo '@MIG@ (@PACKAGE_NAME@) @PACKAGE_VERSION@'; exit 0;;
+	--help ) cat <<EOT; exit 0;;
+Usage: @MIG@ [OPTION]... [FILE]...
+
+This is the GNU implementation of the Mach interface generator \`MIG', which
+generates Mach RPC stubs from definition files.
+
+  -q		  suppress warning statements
+  -Q		  print warning statements [default]
+  -v		  verbose
+  -V		  compile silently [default]
+  -s		  generate symbol table in Server.c code
+  -S		  suppress symbol table in Server.c code [default]
+  -i BASE	  generate separate files (base BASE) for each routine
+  -server FILE	  generate server stubs in FILE
+  -user FILE	  generate user stubs in FILE
+  -header FILE	  generate stub header file in FILE
+  -list FILE	  generate list of RPC names and message IDs in FILE
+  -n		  suppress default output files, create only given files
+  -migcom	  use migcom instead of CPP
+
+Any switches not listed are passed on to the preprocessor, invoked by:
+	${cpp}
+
+Report bugs and request assistance writing email to <@PACKAGE_BUGREPORT@>.
+EOT
+
+	-[qQvVtTrRsSn] ) migflags="$migflags $1"; shift;;
+	-i	) sawI=1; migflags="$migflags $1 $2"; shift; shift;;
+	-user   ) user="$2"; if [ ! "${sawI-}" ]; then migflags="$migflags $1 $2"; fi; shift; shift;;
+	-server ) server="$2"; migflags="$migflags $1 $2"; shift; shift;;
+	-header ) header="$2"; migflags="$migflags $1 $2"; shift; shift;;
+	-sheader ) sheader="$2"; migflags="$migflags $1 $2"; shift; shift;;
+	-iheader ) iheader="$2"; migflags="$migflags $1 $2"; shift; shift;;
+	-list ) list="$2"; migflags="$migflags $1 $2"; shift; shift;;
+	-prefix | -subrprefix ) migflags="$migflags $1 $2"; shift; shift;;
+
+	-MD ) sawMD=1; cppflags="$cppflags $1"; shift;;
+	-imacros | -isystem ) cppflags="$cppflags $1 `prj_quote_sh "$2"`"; shift; shift;;
+	-cc) cpp="$2"; shift; shift;;
+	-migcom) migcom="$2"; shift; shift;;
+	-* ) cppflags="$cppflags `prj_quote_sh "$1"`"; shift;;
+	* ) files="$files $1"; shift;;
+    esac
+done
+
+for file in $files
+do
+    eval "$cpp $cppflags $file | $migcom $migflags || exit"
+
+    if [ $sawMD ]
+    then
+	base="`basename "$file"|sed 's%[.][^.]*$%%'`"
+	deps=
+	rheader="${header-${base}.h}"
+	if [ "$rheader" != /dev/null ]; then deps="$deps $rheader"; fi
+	ruser="${user-${base}User.c}"
+	if [ "$ruser" != /dev/null ]; then
+		if [ $sawI ]; then
+		    for un in $ruser
+		    do
+			deps="$deps $un"
+		    done
+		else
+		    deps="$deps $ruser"
+		fi
+	fi
+	rserver="${server-${base}Server.c}"
+	if [ "$rserver" != /dev/null ]; then deps="$deps $rserver"; fi
+	rsheader="${sheader-/dev/null}"
+	if [ "$rsheader" != /dev/null ]; then deps="$deps $rsheader"; fi
+	riheader="${iheader-/dev/null}"
+	if [ "$riheader" != /dev/null ]; then deps="$deps $riheader"; fi
+	rlist="${list-/dev/null}"
+	if [ "$rlist" != /dev/null ]; then deps="$deps $rlist"; fi
+	sed 's%^[^:]*:%'"${deps}"':%' <"${base}.d" >"${base}-mig.d"
+	rm -f ${base}.d
+    fi
+done
+
+exit 0

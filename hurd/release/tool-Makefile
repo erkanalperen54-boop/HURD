@@ -1,0 +1,93 @@
+# Makefile for hurd image frobnication.
+
+export OBJCOPY=objcopy
+
+# Where we get programs from
+image-dir=/
+# Where we get libc 
+libc-obj-dir = /gd4/hurd-native/build/glibc
+
+smallso-LDFLAGS = -Wl,-rpath-link=/lib
+
+BF=bfloppy
+RF=rfloppy
+
+bfloppy-files = $(bfloppy-bootfs:%=hurd/%) $(bfloppy-bootprogs:%=boot/%.gz) \
+	       lib/ld.so boot/servers.boot
+bfloppy-bootfs = ufs
+bfloppy-bootprogs = gnumach serverboot
+
+$(BF)/boot/servers.boot: bfloppy.boot
+	@-rm -f $@
+	@test -d $(@D) || mkdir -p $(@D)
+	cp $< $@
+
+$(BF)/%/: $(image-dir)/%/
+	test -d $@ || mkdir -p $@
+$(addsuffix .gz, $(addprefix $(BF)/boot/, $(bfloppy-bootprogs))): \
+  $(BF)/boot/%.gz: $(image-dir)/boot/%
+	@-rm -f $@
+	@test -d $(@D) || mkdir -p $(@D)
+	$(OBJCOPY) --strip-unneeded $< | gzip -9 > $@
+$(BF)/%: $(image-dir)/%
+	@-rm -f $@
+	@test -d $(@D) || mkdir -p $(@D)
+	$(OBJCOPY) --strip-unneeded $< $@
+
+$(BF): $(bfloppy-files:%=$(BF)/%)
+$(BF).tar: $(bfloppy-files:%=$(BF)/%)
+	rm -f $@
+	cd $(BF); tar covf ../$@ $(^:$(BF)/%=%)
+
+rfloppy-files = $(rfloppy-hurd:%=hurd/%) $(rfloppy-progs:%=bin/%) \
+		$(rfloppy-sprogs:%=sbin/%) \
+	        $(rfloppy-solib:%=lib/%.so) hurd/exec \
+	        lib/libc.so lib/libhurduser.so lib/libmachuser.so \
+		servers/exec servers/socket/1 \
+	        README tmp/ mnt/ dev/MAKEDEV
+rfloppy-hurd = auth storeio null init proc term pfinet nfs ufs ext2fs
+rfloppy-progs = bash ls cat settrans
+rfloppy-sprogs = mkfs.ufs mkfs.ext2
+rfloppy-solib = libtrivfs libshouldbeinlibc libports	\
+	       libpager libiohelp libstore libihash libfshelp libnetfs ld
+
+libc-satisfies = $(rfloppy-hurd:%=hurd/%) $(rfloppy-progs:%=bin/%) $(rfloppy-sprogs:%=sbin/%) $(rfloppy-solib:%=lib/%.so)
+
+$(RF)/lib/libc.so: $(image-dir)/lib/libc.so $(image-dir)/lib/libhurduser.so $(image-dir)/lib/libmachuser.so $(libc-satisfies:%=$(image-dir)/%)
+	mksmallso $(smallso-LDFLAGS) \
+	  $@ $(libc-obj-dir)/libc_pic.a '-L$(image-dir)/lib -lhurduser -lmachuser' \
+	  $(filter-out $(firstword $^),$^)
+
+$(RF)/lib/libhurduser.so: $(RF)/lib/libc.so $(libc-satisfies:%=$(image-dir)/%)
+	mksmallso $(smallso-LDFLAGS) $@ $(libc-obj-dir)/hurd/libhurduser_pic.a -L$(image-dir)/lib -lmachuser $(filter-out $(firstword $^),$^)
+
+$(RF)/lib/libmachuser.so: $(RF)/lib/libc.so $(RF)/lib/libhurduser.so $(libc-satisfies:%=$(image-dir)/%)
+	mksmallso $(smallso-LDFLAGS) $@ $(libc-obj-dir)/mach/libmachuser_pic.a '' $(filter-out $(firstword $^),$^)
+
+$(RF)/bin/%: $(image-dir)/bin/%
+	@-rm -f $@
+	@test -d $(@D) || mkdir -p $(@D)
+	$(OBJCOPY) --strip-unneeded $< $@
+$(RF)/sbin/%: $(image-dir)/sbin/%
+	@-rm -f $@
+	@test -d $(@D) || mkdir -p $(@D)
+	$(OBJCOPY) --strip-unneeded $< $@
+$(RF)/hurd/%: $(image-dir)/hurd/%
+	@-rm -f $@
+	@test -d $(@D) || mkdir -p $(@D)
+	$(OBJCOPY) --strip-unneeded $< $@
+$(RF)/servers/%:
+	@test -d $(@D) || mkdir -p $(@D)
+	touch $@
+$(RF)/%/: $(image-dir)/%/
+	test -d $@ || mkdir -p $@
+
+$(RF): $(rfloppy-files:%=$(RF)/%)
+$(RF).tar: $(rfloppy-files:%=$(RF)/%)
+	rm -f $@
+	cd $(RF); tar covf ../$@ $(^:$(RF)/%=%)
+
+bfloppy.%: $(bfloppy-files:%=$(BF)/%)
+	mkfsimage -q $@ $(BF)
+rfloppy.%.gz: $(rfloppy-files:%=$(RF)/%)
+	mkfsimage --compress -q $@ $(RF)

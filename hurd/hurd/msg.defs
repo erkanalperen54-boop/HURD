@@ -1,0 +1,202 @@
+/* RPCs which a friendly Hurd process will understand on its message port.
+   Copyright (C) 1991,92,93,94,95,96,2002 Free Software Foundation, Inc.
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+subsystem msg 23000;
+
+#include <hurd/hurd_types.defs>
+
+#ifdef MSG_IMPORTS
+MSG_IMPORTS
+#endif
+
+/* WARNING: The file hurd/proc/stubs.c knows the RPC message ID's
+   and formats for some of the RPC's in this file.  */
+
+/* Post a signal to the process.  The refport indicates some
+   permission attribute that the caller provides in the hope that the
+   receiver will honor the signal.  Conventional values include:
+
+Port				Signals honored
+
+task port			all
+session ID (see proc_getsidport) CONT
+ctty port (see term_getctty)	INT, QUIT, TSTP, HUP
+async IO ID (see io_async)	URG, IO
+*/
+routine msg_sig_post (
+	process: mach_port_t;
+	sreplyport reply_port: sreply_port_t;
+	signal: int;
+	sigcode: natural_t;
+	refport: mach_port_t);
+
+/* The parent or the process group of a process has been changed, or
+   the orphaned status has changed.  The task port is sent so that the
+   recipient can know it's OK to honor the call.  */
+routine msg_proc_newids (
+	process: mach_port_t;
+	task: task_t;
+	ppid: pid_t;
+	pgrp: pid_t;
+	orphaned: int);
+
+/* Do a reauth after or-ing in new id's. */
+routine msg_add_auth (
+	process: mach_port_t;
+	auth: auth_t);
+
+/* Do a reauth after removing auth information.  The task port is
+   provided as an attempt at security.  */
+routine msg_del_auth (
+	process: mach_port_t;
+	task: task_t;
+	uids: intarray_t;
+	gids: intarray_t);
+
+/* These eight calls fetch and store the ports and other information
+   that were passed to the process at exec time (see hurd_types.h).
+   The REFPORT can be the task port or the auth port.  */
+
+routine msg_get_init_port (
+	process: mach_port_t;
+	refport: mach_port_t;
+	which: int;
+	out port: mach_port_send_t);
+
+routine msg_set_init_port (
+	process: mach_port_t;
+	refport: mach_port_t;
+	which: int;
+	port: mach_port_send_t);
+
+routine msg_get_init_ports (
+	process: mach_port_t;
+	refport: mach_port_t;
+	out ports: portarray_t, dealloc);
+
+routine msg_set_init_ports (
+	process: mach_port_t;
+	refport: mach_port_t;
+	ports: portarray_t);
+
+routine msg_get_init_int (
+	process: mach_port_t;
+	refport: mach_port_t;
+	which: int;
+	out value: int);
+
+routine msg_set_init_int (
+	process: mach_port_t;
+	refport: mach_port_t;
+	which: int;
+	value: int);
+
+routine msg_get_init_ints (
+	process: mach_port_t;
+	refport: mach_port_t;
+	out values: intarray_t, dealloc);
+
+routine msg_set_init_ints (
+	process: mach_port_t;
+	refport: mach_port_t;
+	values: intarray_t);
+
+/* These two calls fetch and store the file descriptor table.  */
+
+routine msg_get_dtable (
+	process: mach_port_t;
+	refport: mach_port_t;
+	out dtable: portarray_t, dealloc);
+
+routine msg_set_dtable (
+	process: mach_port_t;
+	refport: mach_port_t;
+	dtable: portarray_t);
+
+/* These two calls fetch and store a single file descriptor.  */
+
+routine msg_get_fd (
+	process: mach_port_t;
+	refport: mach_port_t;
+	fd: int;
+	out port: mach_port_send_t);
+
+routine msg_set_fd (
+	process: mach_port_t;
+	refport: mach_port_t;
+	fd: int;
+	port: mach_port_send_t);
+
+/* These two calls fetch and store the whole environment,
+   in "a=b\0c=d\0" form.  */
+
+routine msg_get_environment (
+	process: mach_port_t;
+	out value: data_t, dealloc);
+
+routine msg_set_environment (
+	process: mach_port_t;
+	refport: mach_port_t;
+	value: data_t);
+
+/* These two calls fetch and store a single environment variable.  */
+
+routine msg_get_env_variable (
+	process: mach_port_t;
+	variable: string_t;
+	out value: data_t, dealloc);
+
+routine msg_set_env_variable (
+	process: mach_port_t;
+	refport: mach_port_t;
+	variable: string_t;
+	value: string_t;
+	replace: boolean_t);
+
+skip; /* Obsolete io_select_done.  */
+skip; /* Obsolete msg_startup_dosync.  */
+
+/* Like msg_sig_post, but the receiver should ignore his trace bit
+   and deliver the signal normally even if traced, first resuming if
+   he was suspended.  */
+routine msg_sig_post_untraced (
+	process: mach_port_t;
+	sreplyport reply_port: sreply_port_t;
+	signal: int;
+	sigcode: natural_t;
+	refport: mach_port_t);
+
+/* Return a description of why THREAD is waiting.  THREAD must
+   be a thread in this task.  If the thread is not waiting, or the reason
+   is unknown, return zero.  WAIT_RPC is the RPC code of the RPC the thread
+   is waiting on, or zero if it is not blocked in an RPC.  */
+routine msg_report_wait (
+	process: mach_port_t;
+	thread: thread_t;
+	out wait_desc: string_t;
+	out wait_rpc: mach_msg_id_t);
+
+/* Given a list of port names in NAMES, return a description of the
+   corresponding port from libc's point of view, in a '\0'-separated vector.
+   Ports that libc doesn't know about should result in a zero-length entry. */
+routine msg_describe_ports (
+	process: mach_port_t;
+	refport: mach_port_t;
+	names: mach_port_name_array_t;
+	out descriptions: data_t);

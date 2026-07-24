@@ -1,0 +1,79 @@
+/* Definitions for the authentication server
+   Copyright (C) 1991,92,93,94,96,2002 Free Software Foundation, Inc.
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+subsystem auth 25000;
+
+#include <hurd/hurd_types.defs>
+
+#ifdef AUTH_IMPORTS
+AUTH_IMPORTS
+#endif
+
+INTR_INTERFACE
+
+/* Throughout, uid's and gid's are passed as arrays.  One of these
+   arrays is called the "effective" ids; these id's should be used to
+   compute whether a given user is permitted a given operation.  The
+   other array is called the "available" ids; these should not be used
+   for such computation (though they can be turned into effective ids
+   when calling auth_makeauth).  The first available id is
+   conventionally called the "real" id, and the second the "saved" id.  */
+
+/* Given an authentication handle, return the identification. */
+routine auth_getids (
+	handle: auth_t;
+	out euids: idarray_t;
+	out auids: idarray_t;
+	out egids: idarray_t;
+	out agids: idarray_t);
+
+/* Create a new authentication handle.  */
+routine auth_makeauth (
+	handle: auth_t;
+	other_handles: portarray_t;
+	euids: idarray_t;
+	auids: idarray_t;
+	egids: idarray_t;
+	agids: idarray_t;
+	out newhandle: mach_port_make_send_t);
+
+/* Called by a user in a reauthentication transaction.  The rendezvous
+   port is used to match the request up with the server's
+   auth_server_authenticate call.  The newport is a port provided by
+   the server.  */
+routine auth_user_authenticate (
+	handle: auth_t;
+	sreplyport reply: mach_port_poly_t;
+	rendezvous: mach_port_send_t;
+	out newport: mach_port_send_t);
+
+/* Called by a server in a reauthentication transaction.  The
+   rendezvous port is used to match the request up with the user's
+   auth_user_authenticate call.  The newport is passed to the user
+   through the authentication server.  The identification information
+   is returned.  */
+routine auth_server_authenticate (
+	handle: auth_t;
+	sreplyport reply: mach_port_poly_t;
+	rendezvous: mach_port_send_t;
+	newport: mach_port_poly_t;
+	out euids: idarray_t;
+	out auids: idarray_t;
+	out egids: idarray_t;
+	out agids: idarray_t);

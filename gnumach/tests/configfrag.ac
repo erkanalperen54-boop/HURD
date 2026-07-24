@@ -1,0 +1,73 @@
+dnl Configure fragment for the test suite.
+
+dnl Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+
+dnl This program is free software; you can redistribute it and/or modify it
+dnl under the terms of the GNU General Public License as published by the
+dnl Free Software Foundation; either version 2, or (at your option) any later
+dnl version.
+dnl 
+dnl This program is distributed in the hope that it will be useful, but
+dnl WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+dnl or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+dnl for more details.
+dnl 
+dnl You should have received a copy of the GNU General Public License along
+dnl with this program; if not, write to the Free Software Foundation, Inc.,
+dnl 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+#
+# Tests.
+#
+
+AC_CONFIG_FILES([tests/test-multiboot], [chmod +x tests/test-multiboot])
+
+
+[if test x"$enable_user32" = xyes ; then
+    ac_miguser=$user32_cpu-gnu-mig
+else
+    ac_miguser=$host_cpu-gnu-mig
+fi]
+
+AC_CHECK_PROG([USER_MIG], [$ac_miguser], [$ac_miguser])
+
+# Try mig as well if we are not cross-building
+[if test x"$USER_MIG" = x -a x"$host" = x"$build" ; then
+    ac_miguser=mig
+]
+    AC_CHECK_PROG([USER_MIG], [$ac_miguser], [$ac_miguser])
+[fi]
+
+AC_ARG_VAR([USER_MIG], [Path to the mig tool for user-space tests])
+AC_CHECK_PROG([USER_CC], [$CC], [$CC], [none])
+AC_ARG_VAR([USER_CC], [C compiler command for user-space tests])
+AC_CHECK_PROG([USER_CPP], [$CPP], [$CPP], [none])
+AC_ARG_VAR([USER_CPP], [C preprocessor for user-space tests])
+AC_ARG_VAR([USER_CFLAGS], [C compiler flags for user-space tests])
+AC_ARG_VAR([USER_CPPFLAGS], [C preprocessor flags for user-space tests])
+
+dnl APPEND_USER_CFLAGS_IF_SUPPORTED(-foobar)
+dnl will add -foobar to USER_CFLAGS if supported by compiler
+define([APPEND_USER_CFLAGS_IF_SUPPORTED],[
+  AC_MSG_CHECKING([if compiler flag $1 works])
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS $1"
+  pushdef(prog, [int main(){}])
+  flag_test=0
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([prog])], [flag_test=1],[flag_test=0])
+  popdef([prog])
+  if test $flag_test = 1
+  then
+    AC_MSG_RESULT(yes)
+    USER_CFLAGS="$USER_CFLAGS $1"
+  else
+    AC_MSG_RESULT(no)
+  fi
+  CFLAGS="$save_CFLAGS"
+])
+
+APPEND_USER_CFLAGS_IF_SUPPORTED(-ftrivial-auto-var-init=pattern)
+
+dnl Local Variables:
+dnl mode: autoconf
+dnl End:

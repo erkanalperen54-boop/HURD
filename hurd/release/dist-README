@@ -1,0 +1,36 @@
+-*- Text -*-
+
+This is the Hurd.  Welcome.
+
+This is the complete GNU system, version 0.2.  
+
+This directory contains i386 binaries for the Hurd and various
+programs built to run under it.  
+
+See the file SOURCES to see where each package came from.  Remember
+that you must adhere to the GNU General Public License and the GNU
+Library General Public when distributing this binary snapshot.  See
+/share/misc/COPYING and /share/misc/COPYING.LIB for copies of these
+licenses.
+
+For instructions on installing binary images and setting up a Hurd
+system, see the file INSTALL-binary.  
+
+Bug reports for programs in this distribution should be sent to the
+maintainer of the program.  For a complete list of which mailing lists
+get bug reports for which programs, ask `gnu@prep.ai.mit.edu'.
+
+Bug reports for the GNU Hurd should be sent to the mailing list
+`bug-hurd@prep.ai.mit.edu'.  Please do not send requests for
+assistance in installing or using the software to that address.
+Instead, send requests for assistance to the mailing list
+`help-hurd@prep.ai.mit.edu'.  You can join these lists by sending a
+request to `bug-hurd-request@prep.ai.mit.edu' or
+`help-hurd-request@prep.ai.mit.edu' respectively.
+
+In addition, bug reports or requests for help in using the system as a
+connected whole (as opposed to for particular programs) should be sent
+to the hurd mailing lists.
+
+The GNU system is free software.  See the files /share/misc/COPYING
+and /share/misc/COPYING.LIB.

@@ -1,0 +1,259 @@
+/*
+ * Copyright (C) 2012 Free Software Foundation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+subsystem
+#if	KERNEL_SERVER
+	  KernelServer
+#endif	/* KERNEL_SERVER */
+#if	KERNEL_USER
+	  KernelUser
+#endif	/* KERNEL_USER */
+		       gnumach 4200;
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+#include <mach_debug/mach_debug_types.defs>
+
+#ifdef	GNUMACH_IMPORTS
+GNUMACH_IMPORTS
+#endif
+
+type vm_cache_statistics_data_t = struct[11] of integer_t;
+
+type vm_wire_t = int;
+
+/*
+ * Return page cache statistics for the host on which the target task
+ * resides.
+ */
+routine vm_cache_statistics(
+		target_task	: vm_task_t;
+	out	vm_cache_stats	: vm_cache_statistics_data_t);
+
+/*
+ * Terminate a thread and release rights and memory.
+ *
+ * Intended to be used by threading libraries to provide a clean way for
+ * threads to terminate themselves. The resources a thread wouldn't be able
+ * to release without this call when terminating itself are its
+ * last reference to its kernel port, its reply port, and its stack.
+ *
+ * This call is semantically equivalent to :
+ *  - mach_port_deallocate(task, thread_name);
+ *  - if (reply_port != MACH_PORT_NULL)
+ *      mach_port_destroy(task, reply_port);
+ *  - if ((address != 0) || (size != 0))
+ *      vm_deallocate(task, address, size)
+ *  - thread_terminate(thread)
+ *
+ * Implemented as a simple routine so a reply port isn't required.
+ */
+simpleroutine thread_terminate_release(
+		thread		: thread_t;
+		task		: task_t;
+		thread_name	: mach_port_name_t;
+		reply_port	: mach_port_name_t;
+		address		: vm_address_t;
+		size		: vm_size_t);
+
+/*
+ *	Set the name of task TASK to NAME.  This is a debugging aid.
+ *	NAME will be used in error messages printed by the kernel.
+ */
+simpleroutine task_set_name(
+		task	: task_t;
+		name	: kernel_debug_name_t);
+
+/*
+ * Register a port to which a notification about newly created tasks
+ * are sent.
+ */
+routine register_new_task_notification(
+		host_priv	: host_priv_t;
+		notification	: mach_port_send_t);
+
+/* Test that the contents of ADDR are equal to the 32-bit integer VAL1.
+ * If they are not, return immediately, otherwise, block until a
+ * matching 'gsync_wake' is done on the same address. FLAGS is used
+ * to control how the thread waits, and may be composed of:
+ * - GSYNC_SHARED: The address may be shared among tasks. If this
+     bit is not set, the address is assumed to be task-local.
+ * - GSYNC_QUAD: Additionally check that the adjacent 32-bit word
+     following ADDR matches the value VAL2.
+ * - GSYNC_TIMED: The call only blocks for MSEC milliseconds. */
+routine gsync_wait(
+  task : task_t;
+  addr : vm_address_t;
+  val1 : unsigned;
+  val2 : unsigned;
+  msec : natural_t;
+  flags : int);
+
+/* Wake up threads waiting on the address ADDR. Much like with
+ * 'gsync_wait', the parameter FLAGS controls how it is done. In this
+ * case, it may be composed of the following:
+ * - GSYNC_SHARED: Same as with 'gsync_wait'.
+ * - GSYNC_BROADCAST: Wake up every thread waiting on the address. If
+ *   this flag is not set, the call wakes (at most) 1 thread.
+ * - GSYNC_MUTATE: Before waking any potential waiting threads, set the
+ *   contents of ADDR to VAL.
+ *
+ * This RPC is implemented as a simple routine for efficiency reasons,
+ * and because the return value rarely matters. */
+simpleroutine gsync_wake(
+  task : task_t;
+  addr : vm_address_t;
+  val : unsigned;
+  flags : int);
+
+/* Arrange for threads waiting on address SRC_ADDR to instead
+ * wait on address DST_ADDR. If WAKE_ONE is true, additionally
+ * wake one of the threads waiting on SRC_ADDR. For this function,
+ * the parameter flags may be a combination of:
+ * - GSYNC_SHARED: Just like with 'gsync_wait' and 'gsync_wake'.
+ * - GSYNC_BROADCAST: Move all the threads waiting on SRC_ADDR. If
+     this flag is not set, the call moves (at most) 1 thread.
+ *
+ * This RPC is also a simple routine, and for the same reasons as
+ * with 'gsync_wake'. */
+simpleroutine gsync_requeue(
+  task : task_t;
+  src_addr : vm_address_t;
+  dst_addr : vm_address_t;
+  wake_one : boolean_t;
+  flags : int);
+
+/*
+ * If the VM_WIRE_CURRENT flag is passed, specify that the entire
+ * virtual address space of the target task must not cause page faults.
+ *
+ * If the VM_WIRE_FUTURE flag is passed, automatically wire new
+ * mappings in the address space of the target task.
+ *
+ * If the flags are empty (VM_WIRE_NONE), unwire all mappings.
+ */
+routine	vm_wire_all(
+		host		: mach_port_t;
+		task		: vm_task_t;
+		flags		: vm_wire_t);
+
+routine vm_object_sync(
+		object		: memory_object_name_t;
+		offset		: vm_offset_t;
+		size		: vm_size_t;
+		should_flush	: boolean_t;
+		should_return	: boolean_t;
+		should_iosync	: boolean_t);
+
+routine vm_msync(
+		target_task	: vm_task_t;
+		address		: vm_address_t;
+		size		: vm_size_t;
+		sync_flags	: vm_sync_t);
+
+/*
+ *	This routine is created for allocating DMA buffers.
+ *	We are going to get a contiguous physical memory
+ *	and its physical address in addition to the virtual address.
+ *	We can specify physical memory range limits and alignment.
+ *	NB:
+ *	  pmax is defined as the byte after the maximum address,
+ *	  eg 0x100000000 for 4GiB limit.
+ */
+/* XXX
+ * Future work: the RPC should return a special
+ * memory object (similar to device_map() ), which can then be mapped into
+ * the process address space with vm_map() like any other memory object.
+ */
+routine vm_allocate_contiguous(
+		host_priv	: host_priv_t;
+		target_task	: vm_task_t;
+	out	vaddr		: vm_address_t;
+	out	paddr		: rpc_phys_addr_t;
+		size		: vm_size_t;
+		pmin		: rpc_phys_addr_t;
+		pmax		: rpc_phys_addr_t;
+		palign		: rpc_phys_addr_t);
+
+/*
+ *	Set whether TASK is an essential task, i.e. the whole system will crash
+ *	if this task crashes.
+ */
+simpleroutine task_set_essential(
+		task	: task_t;
+		essential	: boolean_t);
+
+/*
+ *	Returns physical addresses of a region of memory
+ */
+routine vm_pages_phys(
+		host_priv	: host_priv_t;
+		target_task	: vm_task_t;
+		vaddr		: vm_address_t;
+		size		: vm_size_t;
+	out	pages		: rpc_phys_addr_array_t);
+
+/*
+ *	Set the name of thread THREAD to NAME.  This is a debugging aid.
+ *	NAME will be used in error messages printed by the kernel.
+ */
+simpleroutine thread_set_name(
+		thread	: thread_t;
+		name	: kernel_debug_name_t);
+
+/*
+ *  Get the name of thread THREAD as set by thread_set_name. Will return
+ *  the name of the task if no THREAD name is set.
+ */
+routine thread_get_name(
+        thread : thread_t;
+        out name : kernel_debug_name_t);
+
+/*
+ *	Set a task virtual memory limit parameters
+ *
+ *	HOST_PORT must be the privileged host control port
+ *	if the caller desires to increase the current max limit.
+ *
+ *	On the other hand, if the max limit is being decreased, the
+ *	unprivileged host control port (as returned by mach_host_self())
+ *	can be provided.
+ *
+ *	Returns:
+ *	  - KERN_SUCCESS
+ *	  - KERN_INVALID_TASK
+ *	  - KERN_INVALID_HOST
+ *	  - KERN_INVALID_ARGUMENT
+ *	      * when current_limit > max_limit
+ *        - KERN_NO_ACCESS
+ *	      * attempt to increase max limit without providing
+ *	        the privileged host control port.
+ */
+routine vm_set_size_limit(
+	host_port     : mach_port_t;
+	map           : vm_task_t;
+	current_limit : vm_size_t;
+	max_limit     : vm_size_t);
+
+/*
+ *	Get a task virtual memory limit parameters
+ */
+routine vm_get_size_limit(
+		map           : vm_task_t;
+	out	current_limit : vm_size_t;
+	out	max_limit     : vm_size_t);

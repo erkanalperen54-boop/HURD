@@ -1,0 +1,194 @@
+/*
+ * Mach Operating System
+ * Copyright (c) 1991,1990 Carnegie Mellon University
+ * Copyright (c) 1991 IBM Corporation
+ * All Rights Reserved.
+ *
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation is hereby granted, provided that both the copyright
+ * notice and this permission notice appear in all copies of the
+ * software, derivative works or modified versions, and any portions
+ * thereof, and that both notices appear in supporting documentation,
+ * and that the name IBM not be used in advertising or publicity
+ * pertaining to distribution of the software without specific, written
+ * prior permission.
+ *
+ * CARNEGIE MELLON AND IBM ALLOW FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+ * CONDITION.  CARNEGIE MELLON AND IBM DISCLAIM ANY LIABILITY OF ANY KIND FOR
+ * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+ *
+ * Carnegie Mellon requests users of this software to return to
+ *
+ *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+ *  School of Computer Science
+ *  Carnegie Mellon University
+ *  Pittsburgh PA 15213-3890
+ *
+ * any improvements or extensions that they make and grant Carnegie Mellon
+ * the rights to redistribute these changes.
+ */
+
+/*
+ * Pass field offsets to assembly code.
+ */
+#include <sys/reboot.h>
+
+#include <kern/thread.h>
+#include <kern/task.h>
+#include <kern/syscall_emulation.h>
+#include <i386/thread.h>
+#include <i386/pmap.h>
+#include <i386/vm_param.h>
+#include <i386/seg.h>
+#include <i386/tss.h>
+#include <i386at/idt.h>
+#include <i386/gdt.h>
+#include <i386/ldt.h>
+#include <i386/mp_desc.h>
+#include <i386/apic.h>
+#include <i386/xen.h>
+
+expr	CALL_AST_CHECK
+expr	CALL_PMAP_UPDATE
+
+offset	ApicLocalUnit		lu	apic_id		APIC_ID
+
+offset	percpu			pc	cpu_id		PERCPU_CPU_ID
+offset	percpu			pc	active_thread	PERCPU_ACTIVE_THREAD
+offset	percpu			pc	active_stack	PERCPU_ACTIVE_STACK
+
+offset	pcb			pcb	iss
+
+size	percpu			pc
+
+offset	thread			th	pcb
+offset	thread			th	task
+offset	thread			th	recover
+offset	thread			th	kernel_stack
+offset	thread			th	swap_func
+
+offset	task			task	eml_dispatch	TASK_EMUL
+
+offset	eml_dispatch		eml	disp_min	DISP_MIN
+offset	eml_dispatch		eml	disp_count	DISP_COUNT
+offset	eml_dispatch		eml	disp_vector	DISP_VECTOR
+
+expr	&STACK_IKS(0)->k_ebx				KSS_EBX
+expr	&STACK_IKS(0)->k_esp				KSS_ESP
+expr	&STACK_IKS(0)->k_ebp				KSS_EBP
+#ifdef __i386__
+expr	&STACK_IKS(0)->k_esi				KSS_ESI
+expr	&STACK_IKS(0)->k_edi				KSS_EDI
+#endif
+expr	&STACK_IKS(0)->k_eip				KSS_EIP
+#ifdef __x86_64__
+expr	&STACK_IKS(0)->k_r12				KSS_R12
+expr	&STACK_IKS(0)->k_r13				KSS_R13
+expr	&STACK_IKS(0)->k_r14				KSS_R14
+expr	&STACK_IKS(0)->k_r15				KSS_R15
+#endif
+size	i386_kernel_state	iks
+
+size	i386_exception_link	iel
+
+#if !defined(__x86_64__) || defined(USER32)
+offset	i386_saved_state	r	gs
+offset	i386_saved_state	r	fs
+#endif
+offset	i386_saved_state	r	cs
+offset	i386_saved_state	r	uesp
+offset	i386_saved_state	r	eax
+offset	i386_saved_state	r	ebx
+offset	i386_saved_state	r	ecx
+offset	i386_saved_state	r	edx
+offset	i386_saved_state	r	ebp
+offset	i386_saved_state	r	trapno
+offset	i386_saved_state	r	err
+offset	i386_saved_state	r	efl		R_EFLAGS
+offset	i386_saved_state	r	eip
+offset	i386_saved_state	r	cr2
+offset	i386_saved_state	r	edi
+offset	i386_saved_state	r	esi
+#ifdef __x86_64__
+offset	i386_saved_state	r	r8
+offset	i386_saved_state	r	r9
+offset	i386_saved_state	r	r10
+offset	i386_saved_state	r	r12
+offset	i386_saved_state	r	r13
+offset	i386_saved_state	r	r14
+offset	i386_saved_state	r	r15
+#endif
+
+offset	i386_interrupt_state	i	eip
+offset	i386_interrupt_state	i	cs
+offset	i386_interrupt_state	i	efl
+
+#ifdef __x86_64__
+offset	i386_tss		tss	rsp0
+#else
+offset	i386_tss		tss	esp0
+offset	i386_tss		tss	ss0
+#endif
+
+offset	machine_slot		sub_type	cpu_type
+
+expr	I386_PGBYTES					NBPG
+expr	VM_MIN_ADDRESS
+expr	VM_MAX_ADDRESS
+expr	VM_MIN_KERNEL_ADDRESS				KERNELBASE
+expr	KERNEL_STACK_SIZE
+#if defined MACH_PSEUDO_PHYS && (VM_MIN_KERNEL_ADDRESS == LINEAR_MIN_KERNEL_ADDRESS)
+expr    PFN_LIST					pfn_list
+#endif
+
+#if PAE
+expr	PDPSHIFT
+#endif	/* PAE */
+expr	PDESHIFT
+expr	PDEMASK
+expr	PTESHIFT
+expr	PTEMASK
+
+expr	sizeof(pt_entry_t)				PTE_SIZE
+
+expr	INTEL_PTE_PFN					PTE_PFN
+expr	INTEL_PTE_VALID					PTE_V
+expr	INTEL_PTE_WRITE					PTE_W
+expr	INTEL_PTE_PS					PTE_S
+expr	~INTEL_PTE_VALID				PTE_INVALID
+expr	NPTES						PTES_PER_PAGE
+expr	INTEL_PTE_VALID|INTEL_PTE_WRITE			INTEL_PTE_KERNEL
+
+expr	IDTSZ
+
+expr	KERNEL_RING
+
+expr	(VM_MIN_KERNEL_ADDRESS>>PDESHIFT)*sizeof(pt_entry_t)	KERNELBASEPDE
+
+#if	MACH_KDB
+expr	RB_KDB
+#endif	/* MACH_KDB */
+
+expr	INTSTACK_SIZE
+
+#if	!STAT_TIME
+offset	timer			tm	low_bits	LOW_BITS
+offset	timer			tm	high_bits	HIGH_BITS
+offset	timer			tm	high_bits_check	HIGH_BITS_CHECK
+expr	TIMER_HIGH_UNIT
+offset	thread			th	system_timer
+offset	thread			th	user_timer
+#endif
+
+#ifdef	MACH_XEN
+offset	shared_info		si	vcpu_info[0].evtchn_upcall_mask	CPU_CLI
+offset	shared_info		si	vcpu_info[0].evtchn_upcall_pending	CPU_PENDING
+offset	shared_info		si	vcpu_info[0].evtchn_pending_sel	CPU_PENDING_SEL
+offset	shared_info		si	evtchn_pending	PENDING
+offset	shared_info		si	evtchn_mask	EVTMASK
+#ifdef	MACH_PV_PAGETABLES
+offset	shared_info		si	vcpu_info[0].arch.cr2	CR2
+#endif	/* MACH_PV_PAGETABLES */
+#endif	/* MACH_XEN */
+
+offset	mach_msg_header		msgh	msgh_size

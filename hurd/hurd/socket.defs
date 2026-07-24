@@ -1,0 +1,136 @@
+/* Definitions for socket interface
+   Copyright (C) 1991,93,94,95,2001,02 Free Software Foundation, Inc.
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+
+/* Sockets also support the generic IO facilities.  */
+
+subsystem socket 26000;
+
+#include <hurd/hurd_types.defs>
+
+#ifdef SOCKET_IMPORTS
+SOCKET_IMPORTS
+#endif
+
+INTR_INTERFACE
+
+/* Create a new socket.  Sock type is, for example, SOCK_STREAM,
+   SOCK_DGRAM, or some such.  */
+routine socket_create (
+	server: pf_t;
+	sock_type: int;
+	protocol: int;
+	out sock: mach_port_send_t);
+
+/* Prepare a socket of appropriate type for future accept operations.  */
+routine socket_listen (
+	sock: socket_t;
+	queue_limit: int);
+
+/* Return a new connection from a socket previously listened.  */
+routine socket_accept (
+	sock: socket_t;
+	out conn_sock: mach_port_send_t;
+	out peer_addr: mach_port_send_t);
+
+/* Connect to an address.  */
+routine socket_connect (
+	sock: socket_t;
+	addr: addr_port_t);
+
+/* Bind a socket to an address.  */
+routine socket_bind (
+	sock: socket_t;
+	addr: addr_port_t);
+
+/* Find out the name of a socket.  */
+routine socket_name (
+	sock: socket_t;
+	out addr: mach_port_send_t);
+
+/* Find out the name of the socket's peer.  */
+routine socket_peername (
+	sock: socket_t;
+	out addr: mach_port_send_t);
+
+/* Connect two sockets */
+routine socket_connect2 (
+	sock1: socket_t;
+	sock2: socket_t);
+
+/* Create an address from a sockaddr.  */
+routine socket_create_address (
+	server: mach_port_t;	/* Can be either pf_t or socket_t.  */
+	sockaddr_type: int;
+	sockaddr: data_t SCP;
+	out addr: mach_port_send_t);
+
+/* Create an address without any sockaddr.  */
+routine socket_fabricate_address (
+	server: mach_port_t;	/* Can be either pf_t or socket_t.  */
+	sockaddr_type: int;
+	out addr: mach_port_send_t);
+
+/* Find the sockaddr name of an address. */
+routine socket_whatis_address(
+	addr: addr_port_t;
+	out sockaddr_type: int;
+	out sockaddr: data_t, dealloc);
+
+/* Shutdown a socket for reading or writing.  */
+routine socket_shutdown (
+	sock: socket_t;
+	direction: int);
+
+/* XXX to become ioctl hack */
+/* Get a socket option.  */
+routine socket_getopt (
+	sock: socket_t;
+	level: int;
+	option: int;
+	out optval: data_t, dealloc);
+
+/* XXX to become ioctl hack */
+/* Set a socket option.  */
+routine socket_setopt (
+	sock: socket_t;
+	level: int;
+	option: int;
+	optval: data_t SCP);
+
+/* Send data over a socket, possibly including Mach ports.  */
+routine socket_send (
+	sock: socket_t;
+	addr: addr_port_t;
+	flags: int;
+	data: data_t SCP;
+	ports: portarray_t SCP;
+	control: data_t SCP;
+	out amount: vm_size_t);
+
+/* Receive data from a socket, possibly including Mach ports.  */
+routine socket_recv (
+	sock: socket_t;
+	out addr: mach_port_send_t;
+	flags: int;
+	out data: data_t, dealloc;
+	out ports: portarray_t, dealloc;
+	out control: data_t, dealloc;
+	out outflags: int;
+	amount: vm_size_t);

@@ -1,0 +1,277 @@
+-*- Mode: Outline -*-
+
+Before working on anything in this file, it's very important that you
+make contact with the core Hurd developers.  Things herein might be
+slightly out of date or otherwise not easy to understand at first
+glance.  So write to <bug-hurd@gnu.org> first.
+
+Priorities:
+  Check the end of this file for a task list referring to the next
+  public release.
+
+  Reported bugs generally have top priority.
+  Non-reported and non-encountered bugs (things we know don't work,
+    but don't really impede things) have lower priority.
+  Things in this file are ranked with one to three !; the more, the
+  higher priority.
+
+See `tasks', the exported task list.
+
+* Contents of =pending-changes.
+* Make sure all the pieces of the Hurd have adequate version stuff. !
+* fix root dependencies in filesystem, network, etc. !
+* Profile things !!
+* Write coding standards suggestions for Hurd
+* Implement file_fetch_dir
+* Conform to coding standards (esp. CFLAGS setting)
+* Internationalization !
+* Use hostid in /etc/rc and mention it in installation instructions,
+  when suitable sh-utils is released.
+* "user-friendly" naming scheme for /dev
+
+* Fix emacs/src/unexelf.c to deal with occasional lack of mmap !
+
+* Currently libshouldbeinlibc (idvec, etc) and password.defs and login
+  all think there is one user per-uid, and that ain't necessarily so.
+  Needs fixed.  !
+
+* Libraries
+
+** general:
+*** implement all the pathconf things from Posix.1 right.
+*** implement an soversion and symbol-versioning scheme similar to libc's.
+
+** libc:
+*** !!!! Do these for libc 2.3 (ask Roland for details):
+**** nix hurdmalloc, use special arena with new _int_malloc
+**** avoid sbrk altogether in malloc (don't link it in at all for static)?
+**** maybe hack libio to use _hurd_fd_read et al directly as stdio used to
+*** (once vm_remap exists) implement mremap
+*** when a session leader _exits, it should SIGHUP, TIOCDRAIN, and revoke. !!!
+    [it is still under discussion exactly where to address this,
+     so don't do it in libc yet]
+*** Version of tmpfile that takes a directory
+*** flink
+*** make sure profiling works !!
+*** many functions that are syscalls in unix can potentially leak send rights
+    if a signal handler longjmp's out past them.  They should probably all
+    be using HURD_CRITICAL_SECTION to avoid this. !!
+** items relocated from libc/hurd/STATUS:
+*** We are not sure about possible races between setpgrp (A, pgrp) from
+    process B vs process A receiving proc_newids.
+*** hurdmalloc kludge
+*** think more about environment variable use viz security
+*** SIGINFO handler?
+*** itimers could be implemented better
+*** mmap cannot do MAP_NOEXTEND.
+*** unimplemented calls(?)
+    acct
+    getfh
+    getfsstat
+    madvise
+    mincore
+    mount
+    msync
+    sstk
+    swapon
+    unmount
+
+
+** libports:
+*** Get rid of general `uninibited-rpcs' mechanism in libports, & just
+    special-case interrupt_operation. !
+
+** libstore:
+*** Add lock protocol for mutable stores.
+*** Creating/opening stores with STORE_INACTIVE should work (and then the hack
+    in storeio/dev.c should be removed).
+
+** libfsserver/libnetfs:
+*** convert libnetfs to libfsserver
+
+** libnetfs
+*** Support --readonly, --writable, and --update !
+*** Implement dir_reparent.
+
+** libpager:
+*** Put user-defined fns into a callback struct passed to pager_create. !
+*** Make libpager paging interface able to read/write multiple pages at once.
+*** flush functions don't actually force pending delayed copies. (and in
+    fact, they seem to block if a delayed copy is wired down) !
+
+** libshouldbeinlibc:
+*** Merge contents of libshouldbeinlibc that belong there into libc.
+   Rename the rest to libhurdutil or somesuch.
+
+** libdiskfs
+*** Add the short-circuited-but-not-builtin translator startup code from
+    dir-lookup to fsys_getroot.  Compare and match carefully these two
+    routines and then share common code.
+*** Implement Posix O_SYNC, O_DSYNC, and O_RSYNC under the right
+    names; change libc header to match current Posix.
+*** Handle dead name notifications on execserver ports. !
+*** Deal correctly with setting the translators on /servers/exec.
+*** Implement file_notice_changes.
+*** Implement async I/O. !
+*** Think of a way to have when-to-sync-nodes be more flexible so it can
+    be done right for each format.
+*** Provide for MNT_NODEV, etc. !
+*** Implement io_restrict_auth correctly. !
+*** Use off_t correctly. !!
+*** Add a consistent message printing facility for filesystems to use
+    (syslog, but takes special care when the root file system?). !!
+*** Some of diskfs_readonly_changed in ext2fs should be in generic
+    routines. !
+
+** libfshelp
+*** Put functions here to deal with directory and file change notifications !!!
+*** Translator startup should provide a more useful stdin/stdout than nothing !
+
+** libtrivfs
+*** Allow for read/write/exec to be passed down.
+*** Implement file_exec_paths when appropriate. !!
+*** Provide for the visible owner, etc., to be held in command-line args
+    instead of the underlying node, when it's important. !!
+
+** libps
+*** Add option to print values times with a delay,
+    and to print values relative to last printing.
+*** Whizzier columnation (autosizing?)
+*** Make getters more robust.
+
+* Servers
+** finish default pager in defpager !!
+** Implement goaway in all the servers that don't already have it. !!
+** (init) sleep on spinning gettys !
+** Add calls to various servers to return interesting statistical information.
+** Test new-fifo & make it fifo. !
+** Login/utmp?
+** fifos are flaky.  ?? Details ??
+** implement io_revoke for things in trans/ that need it. !
+
+** pflocal
+*** make peer addresses work?
+*** implement io_revoke on sockets !
+
+** term:
+*** find a way to reduce duplicate signals from repeated VINTR input
+*** when a session leader exits, netbsd SIGHUP's the terminal, drains output,
+    and then revokes it.  (See Posix.1-1996, p. 184, l. 64-68.)
+*** when a session leader sets the ospeed to 0, netbsd SIGHUP's the termianl.
+*** enforce session leader / controlling terminal uniqueness rules. !
+    (1: if a terminal is matched to a session, then another session
+        can't make it its controlling terminal;
+     2: tcsetpgrp to a pgrp that's not in the right sessions must
+        fail;
+     3: when a session leader exits, the association has to be torn
+        down; bsd does SIGHUP + drain + revoke.)
+
+** proc:
+*** Add a version of proc_wait usable by non-parent processes, and use it in
+    gdb; maybe just a flag WNOREAP to proc_wait that doesn't reap and allows
+   anyone to use it.  !!
+*** Add proc_get_tty() [returns tty opened with no flags], so that ps can be
+    non-suid. !
+*** add timeouts to all the msg_* calls proc makes. !
+
+** pfinet
+*** Allow multiple pfinets to arp on the same ethernet interface for different
+    IP addresses. !!
+*** Diagnose why shutdown doesn't close TCP channels properly or reliably. !
+*** select for read on a UDP socket seems never to return. !!!
+*** Undefined functions at the end of pfinet/io-ops.c. !!
+*** Implement io_revoke on sockets. !
+*** Implement SO_LINGER correctly (close() should return EWOULDBLOCK if not all
+    packets could be delivered). !
+
+** nfs
+*** Implement async I/O !!
+*** Finish work to turn on paging. !!
+*** Implement TCP nfs. !
+*** Implement V3 nfs.
+*** Implement nqnfs. !
+*** Add Hurd-specific calls. !!
+*** errors in mount_root should get reflected more usefully to users. !
+
+** storeio:
+*** Make a server (/servers/storeio?) to share multiple storeio nodes
+*** Serverify, ala new-fifo.
+*** implement io_revoke !
+
+** ext2fs
+*** Try to write directories with 512-byte record boundaries. !!
+*** Maybe file_pager_write_page should be able to accurately reproduce holes
+*** Add byte-swapping. !!
+*** If the target of a symlink is the empty string, stat seems to spin forever !!!
+
+** arla -- port it
+
+
+* Utilities
+** Make id, et. al. work with no/multiple uids. !!!
+** Make things work with the `nobody' mode bits: chmod, ls, ... !
+** Make things work with filesystem extensions (author, etc.): ls!!!
+** Make things work better with translators, e.g., tar... !!!
+** Fix bash to turn on interrupts around syscalls more generally,
+    especially chdir. !!
+** talk doesn't work !!
+** login: Make --retry work correctly when invoked via a suid shell
+    script by other than root (it doesn't now if the script specifies
+    --retry="$0" because the exec server will use /dev/fd/N for name,
+    and child_lookup() doesn't supply more than fds 0-2). !!
+** Make w use utmp's tty instead of the process's
+
+** fsck:
+*** fsck should use fsys_get_options returned device instead of /etc/fstab !!
+
+** settrans:
+*** needs an option to make the active go away without using goaway. !
+
+** ps:
+*** ps should timeout quickly (one second?) on non-responsive message ports. !
+*** help displays for: stat letters, format specs.
+*** --match option?
+*** fetch and print task (and thread?) startup times.
+
+** gdb:
+*** Add various mach convenience features (vminfo, &c). !!
+*** Be even more vigilant about noticing new threads.  In particular:
+**** For mach-indep thread commands, before validating against
+     internal thread list. !!!
+*** Gdb doesn't work right if it doesn't have permission to frob the
+    inferior process (for instance, if it's a set[ug]id program), but
+    doesn't give a meaningful error message.  Try `break main' in /bin/login.
+
+** nfsd
+*** Implement TCP nfs. !
+*** Implement V3 nfs. !
+*** Implement nqnfs. !
+*** Add Hurd-specific calls. !!
+*** writes don't seem to work properly !!!
+*** Report statfs correctly. !!
+
+* Mach:
+** Have the at-close actions on devices be more directly controllable
+   by users by deleting the current at-close actions and replacing
+   them with suitable device_set_status calls.
+** Specify and implement vm_remap.
+
+======
+
+???
+  [I'm not sure of the preconditions for this; it usually seems to happen to
+   new login shells (but not often enough to really get a handle on it).
+   If the command is repeated, then it usually works correctly.]
+  login> ps aux|head
+  bash: /bin/head: (ipc/send) invalid msg-header
+  Broken pipe
+  [bash only seems to print error messages in this particular format if an
+   execve fails]
+
+  I've also had it happen in shells that have been around a while.  -thomas
+
+  I just saw it happen in make output; there the particular error
+  happens only when execvp fails.  -thomas
+???
+
+* Next release:

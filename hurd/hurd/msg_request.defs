@@ -1,0 +1,61 @@
+/* Reply side of canonical Hurd process message port RPCs.
+   Copyright (C) 1994, 1995, 1996 Free Software Foundation, Inc.
+
+This file is part of the GNU Hurd.
+
+The GNU Hurd is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+The GNU Hurd is distributed in the hope that it will be useful, 
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with the GNU Hurd; see the file COPYING.  If not, write to
+the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+subsystem msg_request 23000;		/* must match msg.defs */
+
+#include <hurd/hurd_types.defs>
+
+type reply_port_t = polymorphic | polymorphic
+	ctype: mach_port_t;
+
+simpleroutine msg_sig_post_request (
+	process: mach_port_t;
+	replyport reply_port: reply_port_t;
+	signal: int;
+	sigcode: natural_t;
+	refport: mach_port_t);
+
+skip; /* msg_proc_newids */
+skip; /* msg_add_auth */
+skip; /* msg_del_auth */
+skip; /* msg_get_init_port */
+skip; /* msg_set_init_port */
+skip; /* msg_get_init_ports */
+skip; /* msg_set_init_ports */
+skip; /* msg_get_init_int */
+skip; /* msg_set_init_int */
+skip; /* msg_get_init_ints */
+skip; /* msg_set_init_ints */
+skip; /* msg_get_dtable */
+skip; /* msg_set_dtable */
+skip; /* msg_get_fd */
+skip; /* msg_set_fd */
+skip; /* msg_get_environment */
+skip; /* msg_set_environment */
+skip; /* msg_get_env_variable */
+skip; /* msg_set_env_variable */
+skip; /* Obsolete io_select_done.  */
+skip; /* msg_startup_dosync */
+
+simpleroutine msg_sig_post_untraced_request (
+	process: mach_port_t;
+	replyport reply_port: reply_port_t;
+	signal: int;
+	sigcode: natural_t;
+	refport: mach_port_t);

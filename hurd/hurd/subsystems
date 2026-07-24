@@ -1,0 +1,46 @@
+These are the base MiG code numbers for each subsystem in the GNU
+Hurd.  Each subsystem takes 200 in space.  Subsystems marked with a *
+are Mach kernel subsystems.  Subsystems marked with ? may or may not
+be used in the Hurd and are defined by Mach non-kernel source.
+
+
+* notify	   64	IPC notifications
+* mach		 2000	Generic kernel calls
+* memory_object	 2200	Kernel -> pager calls
+* memory_object_default 2250  Extension to memory_object for default pager
+? default_pager	 2275   Default pager control
+* exc		 2400	Exceptions
+* mach_host	 2600	Kernel calls, mostly for multiprocessors
+* device	 2800   Physical device interface
+* mach_debug	 3000   Kernel debugging and statistics 
+* mach_port	 3200	Port name and IPC frobbing
+* mach4		 4000	PC sampling
+fs		20000	Filesystem nodes
+fs_notify	20500	Notification callbacks from fs servers to their clients
+io		21000	Generic IO
+fsys		22000	Filesystem control operations
+msg		23000	Calls made on process message ports
+process		24000	Process abstraction
+auth   		25000	Authentication
+socket 		26000	Sockets
+newterm		27000	Creation of terminal processing thingies
+term		28000	Terminal-specific operations
+startup		29000	System initialization and destruction
+startup_notify	29500	Callbacks from startup server
+exec		30000	Process execution
+exec_startup	30500	Process startup communication
+crash		32000	Program crash handling (core dumps)
+intr		33000	Interruption
+ifsock		34000	S_IFSOCK node protocol for AF_LOCAL rendezvous
+tape		35000	Special control operations for magtapes
+login		36000	Database of logged-in users
+pfinet		37000   Internet configuration calls
+password	38000	Password checker
+pci		39000	PCI arbiter
+<ioctl space>  100000-	First subsystem of ioctl class 'f' (lowest class)
+tioctl	       156000	Ioctl class 't' (terminals)
+tioctl	       156200     (continued)
+<ioctl space>  164200	Last subsystem of ioctl class 'v' (highest class)
+* mach_norma   555000	NORMA machine additions; sort of deprecated right now
+* norma_task   666000   NORMA remote execution
+? dp_helper    888888	pager -> fileserver; asking for more paging space

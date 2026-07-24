@@ -1,0 +1,126 @@
+Version 1.8 (2016-12-18)
+
+A spurious warning in the generated code has been fixed.
+
+Version 1.7 (2016-05-18)
+
+MIG now has a test suite.  It includes a set of valid and invalid
+definition files that MIG will try to process.  For valid
+definitions, GCC will compile the stubs to check if valid C code was
+generated.
+
+The generated code uses integer types from <stdint.h> now instead of
+the old Mach types.
+
+Code that was hard-coding the word size has been identified and
+fixed.
+
+Support for the obsolete kinds of RPC routines 'functions',
+'procedures', and 'simple procedures' has been removed.
+
+MIG now emits code that casts objects translated from capabilities
+to the correct C type.
+
+Version 1.6 (2015-10-31)
+
+MIG now emits RPC lookup functions that are declared `static inline'
+improving compatibility with newer dialects of C.
+
+Version 1.5 (2015-04-10)
+
+Add support for protected payloads.  The new `intranpayload' option
+can be used to specify a translation function translating payloads
+to values of the translated type.  This function will be used
+instead of the `intran' function to to look up the receiving object
+of a message in a server.  This makes it easy to use the protected
+payloads introduced in GNU Mach 1.5.
+
+Emit `X_server_routine' functions that can be inlined reducing the
+message dispatch overhead.
+
+Improve support for variable-sized C strings.
+
+Fix a warning when compiling generated files.
+
+Version 1.4 (2013-09-27)
+
+Don't accept the `-R' (msg_send) command line option anymore and make the
+`-r' one (msg_rpc) a no-op.
+
+Fix warnings when compiling generated files with recent versions of GCC.
+
+Handle the preprocessor option `-isystem' correctly.
+
+Cope with command line arguments that contain whitespace.
+
+Make the installation tree relocatable.
+
+Be more careful to catch write errors when closing files.
+
+Spurious deallocation of out-of-line memory has been fixed in case of an
+error while processing the RPC.
+
+Version 1.3.1 (2002-08-29)
+
+Fix warnings when compiling generated files with GCC 3.x.
+
+Fix alignment issues for greater than 32 bit types on 32 bit
+machines.
+
+Alpha fixes.
+
+Version 1.3 (2002-03-08)
+
+Minor bug fixes.
+
+The new keyword `retcode' is accepted as a parameter modifier.
+This does not do anything, but is accepted for compatibility
+with the MIG input syntax used with OSF Mach.
+
+The debian/ subdirectory of packaging files is now included in the
+MIG source distribution.
+
+Version 1.2 (2001-07-07)
+
+New option -n to suppress default output file creation.
+With -n, no output files are created except those named
+by other command-line options.
+
+New option -list to generate a file listing RPC names and message ID numbers.
+The output is in six columns:
+    subsystem-name subsystem-base rpc-name rpc-num msg-id reply-id
+For example this output line:
+    io 21000 io_read 1 21001 21101
+says that the file used `subsystem io 21000' and defined an RPC called
+`io_read' with message ID 21000+1 = 21001; the reply message ID is
+computed 21001+100 = 21101.  In this example:
+    io 21000 io_reauthenticate 14 21014 0
+the declaration is a `simpleroutine' that expects no reply, so 0 is
+printed in place of the computed reply message ID.  The output list
+these examples is generated on a GNU/Hurd system with this command:
+    $ mig -n -list /dev/stdout /include/hurd/io.defs
+
+Output files of C source now start by defining _GNU_SOURCE,
+for compatibility with the GNU C library on GNU/Hurd.
+
+Version 1.1 (1999-06-22)
+
+First official net release.
+
+Version 1.0.2 (1999-05-23)
+
+Understand normal GNU --version and --help args.
+
+Find CPP in a more flexible fashion.
+
+Version 1.0.1 (1998-12-04)
+
+This release fixes a bug in the `mig' driver script that made it fail to
+invoke the C preprocessor properly.
+
+Version 1.0 (1998-08-19)
+
+MIG has been split into a separate distribution to make it easier to set
+up a compilation environment for GNU Mach and Hurd systems.  The mig
+program itself in this distribution has not been substantively changed
+from the version in the GNU Mach 1.1.3 distribution.

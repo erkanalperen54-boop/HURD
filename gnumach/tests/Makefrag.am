@@ -1,0 +1,51 @@
+# Makefile fragment for the test suite.
+
+# Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2, or (at your option) any later
+# version.
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+# 
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+#
+# Tests.
+#
+
+# Let user specify a kernel to test
+GNUMACH ?= gnumach
+export GNUMACH
+
+.NOTPARALLEL: check
+
+include tests/user-qemu.mk
+
+TESTS += \
+	tests/test-multiboot \
+	$(USER_TESTS)
+
+EXTRA_DIST += \
+	tests/README \
+	tests/grub.cfg.single.template \
+	tests/grub.cfg.xen.template \
+	tests/run-qemu.sh.template \
+	tests/include/syscalls.h \
+	tests/include/testlib.h \
+	tests/include/device/cons.h \
+	tests/include/kern/printf.h \
+	tests/include/mach/mig_support.h \
+	tests/include/sys/reboot.h \
+	tests/include/util/atoi.h \
+	$(USER_TESTS:%=%.c) \
+	$(TESTSRC_TESTLIB)
+
+clean-local: $(USER_TESTS_CLEAN)
+	rm -fr tests/include-mach tests/test-multiboot tests/errlist.c tests/mig-out

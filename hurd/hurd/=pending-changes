@@ -1,0 +1,24 @@
+User visible:
+
+Add notification calls to process.defs (and create process_notify.defs).
+(not yet)
+
+Add file_exchange_contents (not yet)
+
+Change file_getfh and fsys_getfile to use more convenient interface.
+
+Add serverport arg to auth_user_authenticate; change auth to use it to
+abort auth_user_authenticate when it's dead.
+
+Add optional timeout arg to msg.defs.
+
+Add file_fetch_dir.
+
+Delete release arg from register version crap.
+
+Delete non-string args from io_server_version; separate name and version.
+
+Not user visible:
+
+Format of /var/login should be user:1 not user-1.
+  [Or as subdirectories, if a server supplies directory ops anyway]

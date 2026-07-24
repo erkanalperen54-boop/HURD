@@ -1,0 +1,120 @@
+/*
+ * Mach Operating System
+ * Copyright (c) 1991 Carnegie Mellon University
+ * All Rights Reserved.
+ *
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation is hereby granted, provided that both the copyright
+ * notice and this permission notice appear in all copies of the
+ * software, derivative works or modified versions, and any portions
+ * thereof, and that both notices appear in supporting documentation.
+ *
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+ * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+ * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+ *
+ * Carnegie Mellon requests users of this software to return to
+ *
+ *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+ *  School of Computer Science
+ *  Carnegie Mellon University
+ *  Pittsburgh PA 15213-3890
+ *
+ * any improvements or extensions that they make and grant Carnegie Mellon
+ * the rights to redistribute these changes.
+ */
+/*
+ * Special functions for i386.
+ */
+
+subsystem
+#if	KERNEL_SERVER
+	  KernelServer
+#endif	/* KERNEL_SERVER */
+		       mach_i386 3800;
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+#ifdef	MACH_I386_IMPORTS
+MACH_I386_IMPORTS
+#endif
+
+type	descriptor_t	= 	struct[2] of uint32_t;
+type	descriptor_list_t =	array[*] of descriptor_t;
+
+import <mach/machine/mach_i386_types.h>;
+
+#if	KERNEL_SERVER
+simport <machine/io_perm.h>;
+#endif
+
+type	io_port_t	=	MACH_MSG_TYPE_INTEGER_16;
+type	io_perm_t	=	mach_port_t
+		ctype: mach_port_t
+#if	KERNEL_SERVER
+		intran: io_perm_t convert_port_to_io_perm(mach_port_t)
+		outtran: mach_port_t convert_io_perm_to_port(io_perm_t)
+		destructor: io_perm_deallocate(io_perm_t)
+#endif	/* KERNEL_SERVER */
+		;
+
+skip;	/* i386_io_port_add */
+skip;	/* i386_io_port_remove */
+skip;	/* i386_io_port_list */
+
+routine	i386_set_ldt(
+		target_thread	: thread_t;
+		first_selector	: int;
+		desc_list	: descriptor_list_t, serverCopy);
+
+routine	i386_get_ldt(
+		target_thread	: thread_t;
+		first_selector	: int;
+		selector_count	: int;
+	out	desc_list	: descriptor_list_t);
+
+/* Request a new port IO_PERM that represents the capability to access
+   the I/O ports [FROM; TO] directly.  MASTER_PORT is the master device port.
+
+   The function returns KERN_INVALID_ARGUMENT if TARGET_TASK is not a task,
+   or FROM is greater than TO.  */
+routine	i386_io_perm_create(
+		master_port	: mach_port_t;
+		from		: io_port_t;
+		to		: io_port_t;
+	out	io_perm		: io_perm_t);
+
+/* Modify the I/O permissions for TARGET_TASK.  If ENABLE is TRUE, the
+   permission to access the I/O ports specified by IO_PERM is granted,
+   otherwise it is withdrawn.
+
+   The function returns KERN_INVALID_ARGUMENT if TARGET_TASK is not a valid
+   task or IO_PERM not a valid I/O permission port.  */
+routine	i386_io_perm_modify(
+		target_task	: task_t;
+		io_perm		: io_perm_t;
+		enable		: boolean_t);
+
+/* Modify one of a few available thread-specific segment descriptor slots.
+   The SELECTOR must be a value from a previous call (on any thread),
+   or -1 to allocate an available slot and return the segment selector for it.
+   These slots are copied into the CPU on each thread switch.
+   Returns KERN_NO_SPACE when there are no more slots available.  */
+routine	i386_set_gdt(
+		target_thread	: thread_t;
+	inout	selector	: int;
+		desc		: descriptor_t);
+
+/* Fetch a segment descriptor set with a prior i386_set_gdt call.  */
+routine	i386_get_gdt(
+		target_thread	: thread_t;
+		selector	: int;
+	out	desc		: descriptor_t);
+
+/* Returns the size in bytes of the FPU extended state, to be used
+   with i386_XFLOAT_STATE instead of i386_XFLOAT_STATE_COUNT.
+ */
+routine	i386_get_xstate_size(
+		host		: host_t;
+	out	size		: vm_size_t);

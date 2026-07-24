@@ -1,0 +1,26 @@
+Required for 100% compatibility with XKB:
+
+- Jukebox (possibility that this won't ever be done)
+- Proper indicator support
+- overlays
+- Enabling/disabling controls
+- The following controls are not implemented at all:
+	- SlowKeys
+	- BounceKeys
+	- StickyKeys
+	- AccesXKeys
+	- AccesXTimeout
+	- AccessXFreedback (jukebox required)
+	- Overlay1 + Overlay2
+	- AudibleBell
+	- IgnoreGroupLock
+	- EnabledControls
+
+Hurd features:
+
+- Binding a string to a key (requires new action)
+  (It should be possible to insert this on other vcs too)
+- Binding executable to a key (requires new action)
+
+I'm sure I forgot some missing features, please report them:
+metgerards@student.han.nl

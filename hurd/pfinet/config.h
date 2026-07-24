@@ -1,0 +1,40 @@
+#define __KERNEL__	1
+#undef	__SMP__
+
+#define _HURD_		1
+#define ENONET ENETUNREACH
+
+
+#define CONFIG_NET 1
+#define CONFIG_INET 1
+#define CONFIG_IPV6 1
+
+#undef  CONFIG_IPX
+#undef  CONFIG_ATALK
+#undef	CONFIG_PACKET
+#undef	CONFIG_UNIX
+#undef  CONFIG_NETLINK
+#undef  CONFIG_RTNETLINK
+
+#undef  CONFIG_FIREWALL
+#undef  CONFIG_FILTER
+
+#undef	CONFIG_IP_MULTICAST
+#undef  CONFIG_IP_ROUTER
+#undef  CONFIG_IP_ADVANCED_ROUTER
+#undef  CONFIG_IP_PNP
+#undef  CONFIG_IP_ALIAS
+
+#undef  CONFIG_NET_IPIP
+#undef  CONFIG_NET_IPGRE
+
+#undef  CONFIG_SYN_COOKIES
+
+#undef  CONFIG_INET_RARP
+
+#define CONFIG_SKB_LARGE 1
+
+#define CONFIG_IP_NOSIOCRT 1	/* How convenient.  */
+
+#define CONFIG_IPV6_EUI64 1
+#undef  CONFIG_IPV6_NO_PB

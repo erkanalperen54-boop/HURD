@@ -1,0 +1,161 @@
+Version 1.8 (2016-12-18)
+
+The memory management system was extensively reworked.  A new type for
+physical addresses is now used where appropriate, and the system can
+make use of the high memory segment.  Many paging issues have been
+addressed, and as a result the system handles low memory situations
+more gracefully now.
+
+The virtual memory system now uses a red-black tree for allocations,
+and as a result it now supports tasks with tens of thousands of
+mappings.
+
+Debugging and error reporting has been improved.  Among other things
+the VM maps are now augmented with names that are used in error
+messages, panics and assertions point to their locations, the lock
+debugging mechanism has been fixed, and the kernel debugger can now
+inspect stack traces reaching into the machine-dependent bits
+implemented in assembler.
+
+As usual, bugs have been fixed throughout the code, including minor
+issues with the gsync synchronization mechanism which is now used for
+the internal locks in the GNU C Library (glibc).
+
+The deprecated external memory management interface has been removed.
+
+The partial ACPI support has been removed.
+
+Version 1.7 (2016-05-18)
+
+The code has been updated to work with newer versions of GCC, and numerous bugs
+have been fixed throughout the code, including a pageout deadlock.  The code
+uses integer types from <stdint.h> now instead of the old Mach types.
+
+The VM cache policy change has been merged.  The kernel now caches
+unreferenced VM objects unconditionally instead of using a fixed
+limit.
+
+The physical page allocator of the X15 kernel has been integrated, and
+is now used directly by the slab allocator.  This increases the kernel
+heap addressing important scalability issues.
+
+The gsync synchronization mechanism was added, similar to the Linux kernel's
+futexes, to allow efficient and powerful userland synchronization.
+
+Support for profiling kernel code from userland through sampling was added.
+
+Version 1.6 (2015-10-31)
+
+The code has been updated to work with newer versions of the compiler,
+and numerous bugs have been fixed throughout the code.
+
+The lock debugging infrastructure has been revived and improved, and
+many locking issues have been fixed.
+
+The IPC tables and the hash table mapping objects to IPC entries have
+been replaced by radix trees.  This addresses a scalability issue, as
+IPC tables required huge amounts of continuous virtual kernel memory.
+
+The kernel now allows non-privileged users to wire a small amount of
+memory.
+
+A bug hindering the eviction of inactive pages by the pageout daemon
+has been identified and fixed.
+
+The kernel now keeps timestamps relative to the system boot time.
+Among other things this fixes bogus uptime readings if the system time
+is altered.
+
+A reference leak in the exception handling mechanism has been
+identified and fixed.
+
+ANSI escape sequences are now handled when using `printf'.  This fixes
+the formatting of messages printed by various Linux drivers.
+
+Version 1.5 (2015-04-10)
+
+Numerous cleanups and stylistic fixes of the code base.  Several
+problems have been identified using static analysis tools and
+subsequently been fixed.
+
+A protected payload can now be associated with capabilities.  This
+payload is attached by the kernel to delivered messages and can be
+used to speed up the object lookup in the receiving task.
+
+The kernel debugger can now parse ELF symbol tables, can be invoked
+over serial lines, gained two new commands and has received usability
+improvements.
+
+The VM pageout policy has been tuned to accommodate modern hardware.
+
+The kernel gained partial ACPI support on x86, enough to power down
+the system.
+
+Version 1.4 (2013-09-27)
+
+Really too many to list them individually.  Highlight include numerous bug and
+stability fixes, a Xen port for 32-bit x86 including basic support for Physical
+Address Extension (PAE), an initial AHCI driver (SATA hard disks), a new SLAB
+memory allocator to replace the previous zone allocator, support for memory
+object proxies, access restrictions for x86 I/O ports, support for some PCMCIA
+devices based on the pcmcia-cs package.
+
+Version 1.3
+
+The kernel now directly supports "boot scripts" in the form of multiboot
+module names with the same syntax as the Hurd's `serverboot' program.
+That is, instead of telling GRUB "module /boot/serverboot", you can give
+GRUB a series of command like "module /hurd/ext2fs ${...}" where the
+syntax after "module" is the same as in boot scripts for Hurd's `serverboot'.
+
+The kernel message device `kmsg' is now enabled by default.
+--disable-kmsg turns it off.
+
+Large disks (>= 10GB) are now correctly supported, the new get_status
+call DEV_GET_RECORDS can return the number of records of a device.
+
+Lots of tweaks have been done to the virtual memory management to make
+it perform better on today's machines.
+
+The console supports ANSI escape sequences for colors and attributes.
+
+Support for the terminal speeds B57600 and B115200 has been added.
+
+Version 1.2
+
+Many bug fixes.
+
+The task_basic_info RPC now has an additional field, holding the
+creation time of the task.  Likewise for thread_basic_info.
+
+The interface generator `MiG' has been split out.
+
+Partition names for disks are now printed in the correct way.
+
+Linux drivers are updated to 2.0.36.  Many thanks to Okuji Yoshinori
+for great work here.  The Linux emulation support is much improved.
+
+The kernel message device `kmsg' is supported. --enable-kmsg turns on
+the device.
+
+The parallel driver is enabled by --enable-lpr.
+
+New make targets, install-kernel and install-headers are added. The
+former will install only the kernel, and the latter will install only
+the header files.
+
+Print out Mach device names instead of Linux ones.
+
+Version 1.1
+
+Cross-compilation support is much improved.  Any of various popular
+libc's is now sufficient for building clib-routines.o.
+
+New configure option --enable-kdb asks for kernel debugger to be
+compiled in.
+
+Bug in --enable-ncr53c7xx has been fixed.
+
+Many thanks go to Marcus G. Daniels (marcus@cathcart.sysc.pdx.edu) for
+his very helpful testing of the 1.0 release and for his many
+improvements to the cross-compilation support.
