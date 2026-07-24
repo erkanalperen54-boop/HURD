@@ -449,48 +449,24 @@ ipc_kmsg_clean_partial(
  *	Conditions:
  *		Nothing locked.
  */
-
-/*
-OLD Version
-void
-ipc_kmsg_free(ipc_kmsg_t kmsg)
-{
-	vm_size_t size = kmsg->ikm_size;
-
-	switch (size) {
-
-	    case IKM_SIZE_NETWORK:
-		// return it to the network code 
-		net_kmsg_put(kmsg);
-		break;
-
-	    default:
-		kfree((vm_offset_t) kmsg, size);
-		break;
-	}
-}
-
-*/
-
-/*
 void
 ipc_kmsg_free(ipc_kmsg_t kmsg)
 {
 	vm_size_t size;
 
-	* Early exit: NULL kmsg protection *
+	/* Early exit: NULL kmsg protection */
 	if (unlikely(kmsg == IKM_NULL))
 		return;
 
 	size = kmsg->ikm_size;
 
-	* Network buffer offload *
+	/* Network buffer offload */
 	if (size == IKM_SIZE_NETWORK) {
 		net_kmsg_put(kmsg);
 		return;
 	}
 
-	* Sanity check: Size bounds validation before kfree *
+	/* Sanity check: Size bounds validation before kfree */
 	if (unlikely(size == 0 || size > IKM_SAVED_MAX)) {
 		printf("ipc_kmsg_free: corrupt kmsg size (%lu), leaking to prevent crash\n",
 		       (unsigned long)size);
@@ -500,88 +476,6 @@ ipc_kmsg_free(ipc_kmsg_t kmsg)
 	kfree((vm_offset_t) kmsg, size);
 }
 
-*
- *	Routine:	ipc_kmsg_get
- *	Purpose:
- *		Allocates a kernel message buffer.
- *		Copies a user message to the message buffer.
- *	Conditions:
- *		Nothing locked.
- *	Returns:
- *		MACH_MSG_SUCCESS	Acquired a message buffer.
- *		MACH_SEND_MSG_TOO_SMALL	Message smaller than a header.
- *		MACH_SEND_MSG_TOO_SMALL	Message size not long-word multiple.
- *		MACH_SEND_NO_BUFFER	Couldn't allocate a message buffer.
- *		MACH_SEND_INVALID_DATA	Couldn't copy message data.
- *
-
-mach_msg_return_t
-ipc_kmsg_get(
-	mach_msg_user_header_t 	*msg,
-	mach_msg_size_t 	size,
-	ipc_kmsg_t 		*kmsgp)
-{
-	ipc_kmsg_t kmsg;
-	mach_msg_size_t 	ksize = size * IKM_EXPAND_FACTOR;
-
-	if ((size < sizeof(mach_msg_user_header_t)) || mach_msg_user_is_misaligned(size))
-		return MACH_SEND_MSG_TOO_SMALL;
-
-	if (ksize <= IKM_SAVED_MSG_SIZE) {
-		kmsg = ikm_cache_alloc();
-		if (kmsg == IKM_NULL)
-			return MACH_SEND_NO_BUFFER;
-	} else {
-		kmsg = ikm_alloc(ksize);
-		if (kmsg == IKM_NULL)
-			return MACH_SEND_NO_BUFFER;
-		ikm_init(kmsg, ksize);
-	}
-
-	if (copyinmsg(msg, &kmsg->ikm_header, size, kmsg->ikm_size)) {
-		ikm_free(kmsg);
-		return MACH_SEND_INVALID_DATA;
-	}
-
-	*kmsgp = kmsg;
-	return MACH_MSG_SUCCESS;
-}
-
-*
- *	Routine:	ipc_kmsg_get_from_kernel
- *	Purpose:
- *		Allocates a kernel message buffer.
- *		Copies a kernel message to the message buffer.
- *		Only resource errors are allowed.
- *	Conditions:
- *		Nothing locked.
- *	Returns:
- *		MACH_MSG_SUCCESS	Acquired a message buffer.
- *		MACH_SEND_NO_BUFFER	Couldn't allocate a message buffer.
- *
-extern mach_msg_return_t
-ipc_kmsg_get_from_kernel(
-	mach_msg_header_t 	*msg,
-	mach_msg_size_t 	size,
-	ipc_kmsg_t 		*kmsgp)
-{
-	ipc_kmsg_t kmsg;
-
-	assert(size >= sizeof(mach_msg_header_t));
-	assert(!mach_msg_kernel_is_misaligned(size));
-
-	kmsg = ikm_alloc(size);
-	if (kmsg == IKM_NULL)
-		return MACH_SEND_NO_BUFFER;
-	ikm_init(kmsg, size);
-
-	memcpy(&kmsg->ikm_header, msg, size);
-
-	kmsg->ikm_header.msgh_size = size;
-	*kmsgp = kmsg;
-	return MACH_MSG_SUCCESS;
-}
-*/
 
 /*
  *  Routine:    ipc_kmsg_get

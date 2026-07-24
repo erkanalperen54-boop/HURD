@@ -1,0 +1,537 @@
+From 621d0c946e16e0acdc99435040d72d6fe1516b6f Mon Sep 17 00:00:00 2001
+From: Alperen ERKAN <erkanalperen54@gmail.com>
+Date: Fri, 24 Jul 2026 09:03:08 +0300
+Subject: [PATCH] Hurd (1)
+
+---
+ gnumach/ipc/ipc_kmsg.c      | 122 ++++++++++++-
+ test/devnotes/24-07-2026.md | 337 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 454 insertions(+), 5 deletions(-)
+ create mode 100644 test/devnotes/24-07-2026.md
+
+diff --git a/gnumach/ipc/ipc_kmsg.c b/gnumach/ipc/ipc_kmsg.c
+index 8ab0e2e..19a76f3 100644
+--- a/gnumach/ipc/ipc_kmsg.c
++++ b/gnumach/ipc/ipc_kmsg.c
+@@ -445,10 +445,13 @@ ipc_kmsg_clean_partial(
+  *	Routine:	ipc_kmsg_free
+  *	Purpose:
+  *		Free a kernel message buffer.
++ *  Author: GNU
+  *	Conditions:
+  *		Nothing locked.
+  */
+ 
++/*
++OLD Version
+ void
+ ipc_kmsg_free(ipc_kmsg_t kmsg)
+ {
+@@ -457,7 +460,7 @@ ipc_kmsg_free(ipc_kmsg_t kmsg)
+ 	switch (size) {
+ 
+ 	    case IKM_SIZE_NETWORK:
+-		/* return it to the network code */
++		// return it to the network code 
+ 		net_kmsg_put(kmsg);
+ 		break;
+ 
+@@ -467,7 +470,37 @@ ipc_kmsg_free(ipc_kmsg_t kmsg)
+ 	}
+ }
+ 
++*/
++
+ /*
++void
++ipc_kmsg_free(ipc_kmsg_t kmsg)
++{
++	vm_size_t size;
++
++	* Early exit: NULL kmsg protection *
++	if (unlikely(kmsg == IKM_NULL))
++		return;
++
++	size = kmsg->ikm_size;
++
++	* Network buffer offload *
++	if (size == IKM_SIZE_NETWORK) {
++		net_kmsg_put(kmsg);
++		return;
++	}
++
++	* Sanity check: Size bounds validation before kfree *
++	if (unlikely(size == 0 || size > IKM_SAVED_MAX)) {
++		printf("ipc_kmsg_free: corrupt kmsg size (%lu), leaking to prevent crash\n",
++		       (unsigned long)size);
++		return;
++	}
++
++	kfree((vm_offset_t) kmsg, size);
++}
++
++*
+  *	Routine:	ipc_kmsg_get
+  *	Purpose:
+  *		Allocates a kernel message buffer.
+@@ -480,7 +513,7 @@ ipc_kmsg_free(ipc_kmsg_t kmsg)
+  *		MACH_SEND_MSG_TOO_SMALL	Message size not long-word multiple.
+  *		MACH_SEND_NO_BUFFER	Couldn't allocate a message buffer.
+  *		MACH_SEND_INVALID_DATA	Couldn't copy message data.
+- */
++ *
+ 
+ mach_msg_return_t
+ ipc_kmsg_get(
+@@ -514,7 +547,7 @@ ipc_kmsg_get(
+ 	return MACH_MSG_SUCCESS;
+ }
+ 
+-/*
++*
+  *	Routine:	ipc_kmsg_get_from_kernel
+  *	Purpose:
+  *		Allocates a kernel message buffer.
+@@ -525,8 +558,7 @@ ipc_kmsg_get(
+  *	Returns:
+  *		MACH_MSG_SUCCESS	Acquired a message buffer.
+  *		MACH_SEND_NO_BUFFER	Couldn't allocate a message buffer.
+- */
+-
++ *
+ extern mach_msg_return_t
+ ipc_kmsg_get_from_kernel(
+ 	mach_msg_header_t 	*msg,
+@@ -549,6 +581,86 @@ ipc_kmsg_get_from_kernel(
+ 	*kmsgp = kmsg;
+ 	return MACH_MSG_SUCCESS;
+ }
++*/
++
++/*
++ *  Routine:    ipc_kmsg_get
++ *  Purpose:    Allocates a kernel message buffer and copies user message.
++ *  Author:     Alperen ERKAN (2026)
++ */
++mach_msg_return_t
++ipc_kmsg_get(
++    mach_msg_user_header_t  *msg,
++    mach_msg_size_t         size,
++    ipc_kmsg_t              *kmsgp)
++{
++    ipc_kmsg_t      kmsg;
++    mach_msg_size_t ksize;
++
++    /* 1. Alt sınır ve hiza kontrolü */
++    if (unlikely((size < sizeof(mach_msg_user_header_t)) || 
++                 mach_msg_user_is_misaligned(size)))
++        return MACH_SEND_MSG_TOO_SMALL;
++
++    /* 2. Üst sınır ve Integer Overflow koruması */
++    if (unlikely(size > IKM_SAVED_MAX || 
++                 size > (MACH_MSG_SIZE_MAX / IKM_EXPAND_FACTOR)))
++        return MACH_SEND_NO_BUFFER;
++
++    ksize = size * IKM_EXPAND_FACTOR;
++
++    /* 3. Tampon tahsisi */
++    if (ksize <= IKM_SAVED_MSG_SIZE) {
++        kmsg = ikm_cache_alloc();
++        if (unlikely(kmsg == IKM_NULL))
++            return MACH_SEND_NO_BUFFER;
++    } else {
++        kmsg = ikm_alloc(ksize);
++        if (unlikely(kmsg == IKM_NULL))
++            return MACH_SEND_NO_BUFFER;
++        ikm_init(kmsg, ksize);
++    }
++
++    /* 4. Güvenli kopyalama ve hata durumunda doğru kmsg temizliği */
++    if (unlikely(copyinmsg(msg, &kmsg->ikm_header, size, kmsg->ikm_size))) {
++        ipc_kmsg_free(kmsg); /* ikm_free yerine güvenli ipc_kmsg_free kullanımı */
++        return MACH_SEND_INVALID_DATA;
++    }
++
++    *kmsgp = kmsg;
++    return MACH_MSG_SUCCESS;
++}
++
++/*
++ *  Routine:    ipc_kmsg_get_from_kernel
++ *  Purpose:    Allocates a kernel message buffer for internal kernel messages.
++ *  Author:     Alperen ERKAN (2026)
++ */
++extern mach_msg_return_t
++ipc_kmsg_get_from_kernel(
++    mach_msg_header_t   *msg,
++    mach_msg_size_t     size,
++    ipc_kmsg_t          *kmsgp)
++{
++    ipc_kmsg_t kmsg;
++
++    assert(size >= sizeof(mach_msg_header_t));
++    assert(!mach_msg_kernel_is_misaligned(size));
++
++    if (unlikely(size > IKM_SAVED_MAX))
++        return MACH_SEND_NO_BUFFER;
++
++    kmsg = ikm_alloc(size);
++    if (unlikely(kmsg == IKM_NULL))
++        return MACH_SEND_NO_BUFFER;
++    ikm_init(kmsg, size);
++
++    memcpy(&kmsg->ikm_header, msg, size);
++    kmsg->ikm_header.msgh_size = size;
++
++    *kmsgp = kmsg;
++    return MACH_MSG_SUCCESS;
++}
+ 
+ /*
+  *	Routine:	ipc_kmsg_put
+diff --git a/test/devnotes/24-07-2026.md b/test/devnotes/24-07-2026.md
+new file mode 100644
+index 0000000..3da5912
+--- /dev/null
++++ b/test/devnotes/24-07-2026.md
+@@ -0,0 +1,337 @@
++> 24 Temmuz 2026 - 07:11:03 +3 UTC (Istanbul/Ankara) \
++> tazar: Alperen ERKAN
++
++### GNU/HURD hakkında yorumlarım 
++
++**GNU/HURD** 1990'lardan kalma microkernel mimarisi ile sadece `i386` uyumlu bu zaten baştan bir uyumsuzluk onu boşverin `Mach IPC` sadece `sudo apt update` dediğimizde tüm stackler donuyor bunu da hallettik desek bir de `Page Fault` & `Deadlock` ikilisi karşımıza çıkıyor kernel sunucuyu bekliyor, sunucu kerneli bekliyor. Sonuca bakarsanız 30 senedir hala bıkmadan uğuraşıyorlar, takdire şayen bir durum olsada Dünya microkernel için bu kadar güzel düşünmüyor.
++
++microkernel mimarileri/projeleri artık üniversitelerde akademik çalışmalar için yazılıyor ve kullanılıyor. Onun haricinde kullanıldığı iki alanda havacılık ve sağlık alanları. Açık sözlü olmam gerekise; microkernel'e harcanan süreyi monolitik çekirdeklere harcasaydılar şuan Linux çok farklı yerlerde olabilirdi.
++
++Şuan için planım pazartesi gününe dek (27 Temmuz) HURD'ın aşağıda ki iki kritik hatasını çözmek ve `patch tag` açıp GNU ekibine göndermek:
++
++1. `Mach IPC`: Yoğun yük altında IPC'ler tamamen donuyor.
++2. `Deadlock` & `Page Fault`: Kullanıcı alanında bir sunucu çöktüğünde ya da kitlendiğinde zincirleme tüm sistem dairsel bir deadlocka girerek sonsuz bir kısır döngüye takılı kalıyor, kimi zaman `buffer overflow` veya `kernel panic` ile karşılaşılıyor.
++
++Şuan bizi ilgilendirmese de üçüncü kritik sorun **uyumsuzluk**. HURD halen i386-gnu alt yapısını kullanıyor, bu iki kritik hata Pazartesi gününe dek bitecek olsa da i386 uyumunu x86_64'e çekmek GNU Ekibi içi +10 yıl sürecek gibi gözüküyor :)
++
++---
++
++### Plan
++
++ - **24 Temmuz 2026 için:** İlk olarak `gnumach/ipc` klasörü ile başlayacağım, ilk hedef `ipc/ipc_mqueue.c` ve `ipc/kmsg.c` betikleri. **Peki neden?**; Bu iki betik tam da yukarılarda bahsettiğimiz "`Mach IPC` yoğun yük altında kitleniyor..." sözünün yazılı olduğu yerler, bu iki betik mesaj kuyruklarının ve bellek tahsislerinin atandığı/yapıldığı yer.
++
++   - **1. Adım:** `ipc_mqueue.c` içinde mesaj kuyruğunun kilit mekanizmasını (spin-lock / mutex geçişlerini) incelemek ve kuyruk dolduğundaki bekleme stratejisini (blocking policy) optimize etmek.
++
++   - **2. Adım:** `ipc_kmsg.c` üzerinde mesaj tamponlarının (message buffers) bellek sızıntısına veya dairesel beklemeye yol açıp açmadığını kontrol edip `kmsg_get` / `kmsg_put` döngüsünü güvenli hale getirmek.
++
++### Matematiksel Anlatım (Teorik)
++
++ 1) **Dairesel Kilitlenme (Circular Deadlock) ve Coffman Koşulları** \
++    Sistemdeki dairesel kilitlenme, **Coffman Koşulları**'nın ($4/4$) aynı anda sağlanmasıyla oluşur. Kernel ($K$) ve Sunucu/Translator ($S$) arasındaki bağımlılık matrisi:
++    - **Bağımlılık (Dependency):** $K \rightarrow S$ (Kernel, Sunucu'dan yanıt bekliyor)
++    - **Ters Bağımlılık:** $S \rightarrow K$ (Sunucu, Kernel'dan sayfa/bellek tahsisi bekliyor) \ 
++    
++    Bu durum yönlü bir çizgede (Directed Graph) dairesel bir döngü ($C$) oluşturur:
++
++    $$C = \{K \rightarrow S \rightarrow K\}$$
++
++    Geleneksel Mach IPC'sinde zaman aşımı (timeout) veya öncelik tavanı (priority ceiling) doğru yönetilmediğinde, sistem bekleme süresi $T_{\text{wait}} \rightarrow \infty$ sınırına ulaşır ve sistem yanıt vermeyi keser.
++
++  2) **IPC Kuyruk Tıkanması (Queue Saturation & Little's Law)** \
++     `ipc_mqueue.c` üzerindeki mesaj kuyruğunun kilitlenmesi, Little Yasası ($\lambda$ geliş hızı, $W$ sistemde kalma süresi, $L$ kuyruk uzunluğu) ile modellenebilir:
++
++     $$L = \lambda \cdot W$$
++
++     - Sistemde `sudo apt update` gibi yoğun bir işlem başladığında geliş hızı $\lambda_{\text{peak}} \gg \lambda_{\text{normal}}$ seviyesine çıkar.
++
++     - Spin-lock/Mutex üzerindeki çekişme (contention) sebebiyle her bir mesajın işlenme maliyeti arttığından, bekleme süresi $W$ katlanarak büyür.
++     
++     - Kuyruk kapasitesi $L_{\max}$ sınırına ulaştığında, yeni mesajlar bellek tahsisi (`ipc_kmsg.c`) yapamaz ve arka arkaya `Page Fault` tetiklenir.
++     ---
++
++## 1. `ipc_kmsg.c` Analizlerim (`ipc_kmsg_free`)
++
++`ipc_kmsg.c` kodunu incelerken esas almamız gereken en önemli foksiyonlardan birisi şüpesiz `ipc_kmsg_free()` olmalı, bir bakalım;
++
++```C
++/* ilk hali */
++
++void
++ipc_kmsg_free(ipc_kmsg_t kmsg)
++{
++	vm_size_t size = kmsg->ikm_size;
++
++	switch (size) {
++
++	    case IKM_SIZE_NETWORK:
++		/* return it to the network code */
++		net_kmsg_put(kmsg);
++		break;
++
++	    default:
++		kfree((vm_offset_t) kmsg, size);
++		break;
++	}
++}
++```
++
++### 1.1 `ipc_kmsg_free()` Foksiyonundaki Zaafiyet ve Hatalar
++
++1) **`kmsg` Null Pointer Kontrolü Yok:** \
++    Eğer `kmsg` çağrısı bellek hatasından veya çöken bir kullanıcı alanı sunucusundan (translator) dolayı `NULL` gelirse, `kmsg->ikm_size` satırı anında **Kernel Panic** veya **dairesel bir Page Fault** patlatır.
++
++2) **Varsayılan Boyut Doğrulaması Yok (`IKM_SIZE_NORMA` / Valid Sizing):** \
++    `switch (size)` bloğunda sadece `IKM_SIZE_NETWORK` kontrol ediliyor, geriye kalan her şey sorgusuz sualsiz `default:` altındaki `kfreeye` fırlatılıyor. Bozulmuş (corrupt) bir mesaj boyutu geldiğinde `kfree` yanlış boyutta bellek serbest bırakmaya çalışır; bu da bellek havuzunu (`kernel zone memory`) bozar ve ardı arkası kesilmeyen dairesel kilitlenmeleri tetikler.
++
++3) **Yarış Koşulu (Race Condition) & Çift Serbest Bırakma (Double Free):** \
++    `kmsg` serbest bırakılırken mesajın durumu veya üzerindeki kilitler denetlenmiyor. Yoğun yük altında (`sudo apt update` anında) aynı mesaj nesnesine birden fazla thread eriştiğinde aynı blok tekrar serbest bırakılmaya çalışılır (double free), bu da `buffer overflow` veya bellek çökmesine yol açar.
++
++### 1.2 `ipc_kmsg.c` Yamala Süreci
++
++Fonksiyonu savunmacı programlama (defensive programming) prensipleriyle şu mantık üzerine oturtmak gerekiyor:
++
++```C
++void
++ipc_kmsg_free(ipc_kmsg_t kmsg)
++{
++	vm_size_t size;
++
++	/* Early exit: NULL kmsg protection */
++	if (unlikely(kmsg == IKM_NULL))
++		return;
++
++	size = kmsg->ikm_size;
++
++	/* Network buffer offload */
++	if (size == IKM_SIZE_NETWORK) {
++		net_kmsg_put(kmsg);
++		return;
++	}
++
++	/* Sanity check: Size bounds validation before kfree */
++	if (unlikely(size == 0 || size > IKM_SAVED_MAX)) {
++		printf("ipc_kmsg_free: corrupt kmsg size (%lu), leaking to prevent crash\n",
++		       (unsigned long)size);
++		return;
++	}
++
++	kfree((vm_offset_t) kmsg, size);
++}
++```
++
++**Neler Yaptık?** 
++
++- `unlikely()` **Makrosu:** `kmsg == IKM_NULL` veya bozulmuş boyut durumları istisnai durumlardır. Derleyiciye (GCC) komut öngörüsünde (branch prediction) bu yolun nadir çalışacağını söyleyerek işlemci hattını (CPU pipeline) hızlandırdık.
++
++- **Dereceli Erken Çıkış (Guard Clauses):** Gereksiz `switch-case` ve derin `if-else` yapılarını çöpe attık. Kod dümdüz aşağı akıyor.
++
++- **Sade ve Doğrudan Logic:** Ağ mesajıysa iade et ve çık; boyutta saçmalık varsa uyar ve çık; her şey sağlamsa kfree yap.
++
++<!-- Küçük Bir Not:
++     Dostum iyi ki GNU'nun bu kodlarını Linus Torvards görmemiş :) 
++-->
++
++### 2. `ipc_kmsg.c` Analizlerim (`ipc_kmsg_get()`)
++`ipc_kmsg.c` kodunu incelerken ikinci gözüme çarpan korkunç zaafiyet `ipc_kmsg_get` foksyionu oldu:
++
++```C
++// <<<<< İlk Hali >>>>>
++
++/*
++ *	Routine:	ipc_kmsg_get
++ *	Purpose:
++ *		Allocates a kernel message buffer.
++ *		Copies a user message to the message buffer.
++ *	Conditions:
++ *		Nothing locked.
++ *	Returns:
++ *		MACH_MSG_SUCCESS	Acquired a message buffer.
++ *		MACH_SEND_MSG_TOO_SMALL	Message smaller than a header.
++ *		MACH_SEND_MSG_TOO_SMALL	Message size not long-word multiple.
++ *		MACH_SEND_NO_BUFFER	Couldn't allocate a message buffer.
++ *		MACH_SEND_INVALID_DATA	Couldn't copy message data.
++ */
++
++mach_msg_return_t
++ipc_kmsg_get(
++	mach_msg_user_header_t 	*msg,
++	mach_msg_size_t 	size,
++	ipc_kmsg_t 		*kmsgp)
++{
++	ipc_kmsg_t kmsg;
++	mach_msg_size_t 	ksize = size * IKM_EXPAND_FACTOR; 
++
++	if ((size < sizeof(mach_msg_user_header_t)) || mach_msg_user_is_misaligned(size))
++		return MACH_SEND_MSG_TOO_SMALL;
++
++	if (ksize <= IKM_SAVED_MSG_SIZE) {
++		kmsg = ikm_cache_alloc();
++		if (kmsg == IKM_NULL)
++			return MACH_SEND_NO_BUFFER;
++	} else {
++		kmsg = ikm_alloc(ksize);
++		if (kmsg == IKM_NULL)
++			return MACH_SEND_NO_BUFFER;
++		ikm_init(kmsg, ksize);
++	}
++
++	if (copyinmsg(msg, &kmsg->ikm_header, size, kmsg->ikm_size)) {
++		ikm_free(kmsg);
++		return MACH_SEND_INVALID_DATA;
++	}
++
++	*kmsgp = kmsg;
++	return MACH_MSG_SUCCESS;
++}
++
++/*
++ *	Routine:	ipc_kmsg_get_from_kernel
++ *	Purpose:
++ *		Allocates a kernel message buffer.
++ *		Copies a kernel message to the message buffer.
++ *		Only resource errors are allowed.
++ *	Conditions:
++ *		Nothing locked.
++ *	Returns:
++ *		MACH_MSG_SUCCESS	Acquired a message buffer.
++ *		MACH_SEND_NO_BUFFER	Couldn't allocate a message buffer.
++ */
++
++extern mach_msg_return_t
++ipc_kmsg_get_from_kernel(
++	mach_msg_header_t 	*msg,
++	mach_msg_size_t 	size,
++	ipc_kmsg_t 		*kmsgp)
++{
++	ipc_kmsg_t kmsg;
++
++	assert(size >= sizeof(mach_msg_header_t));
++	assert(!mach_msg_kernel_is_misaligned(size));
++
++	kmsg = ikm_alloc(size);
++	if (kmsg == IKM_NULL)
++		return MACH_SEND_NO_BUFFER;
++	ikm_init(kmsg, size);
++
++	memcpy(&kmsg->ikm_header, msg, size);
++
++	kmsg->ikm_header.msgh_size = size;
++	*kmsgp = kmsg;
++	return MACH_MSG_SUCCESS;
++}
++```
++
++### 2.1 Kodda ki Zaaflar & Zaafiyetler
++
++Fonksiyonları incelediğimizde, 90'lardan kalma çok ciddi tam sayı taşması (integer overflow) ve **bellek sızıntısı/sınır** kontrolü açıkları göze çarpıyor.
++
++**ipc_kmsg_get İçindeki Kritik Zaaflar**
++
++- **Tam Sayı Taşması (Integer Overflow / Multiplication Overflow):**
++
++```C
++mach_msg_size_t ksize = size * IKM_EXPAND_FACTOR;
++```
++Kullanıcı alanından gelen `size` değeri çok büyük seçilirse `(size * IKM_EXPAND_FACTOR)`, çarpım sonucu `mach_msg_size_t` (unsigned int) sınırını aşar ve taşar (wrap around). Küçük bir sayıya dönüşen ksize ile `ikm_alloc` çağrılır (küçük bellek ayrılır). Ancak hemen ardından:
++```C
++copyinmsg(msg, &kmsg->ikm_header, size, kmsg->ikm_size)
++```
++orijinal devasa `size` boyutuyla kopyalama yapılmaya çalışılır. Bu durum anında **Heap Buffer Overflow**, **Kernel Memory Corruption** veya **dairesel Page Fault** patlatır!
++
++- **Hata Durumunda Hatalı Serbest Bırakma (`ikm_free` vs `ipc_kmsg_free`):**
++```C
++if (copyinmsg(msg, &kmsg->ikm_header, size, kmsg->ikm_size)) {
++    ikm_free(kmsg); // <-- BURASI!
++    return MACH_SEND_INVALID_DATA;
++}
++```
++Eğer mesaj boyutu `IKM_SAVED_MSG_SIZE` sınırından küçükse bellek `ikm_cache_alloc()` ile önbellekten (cache) çekildi. Ama `copyinmsg` başarısız olduğunda doğrudan `ikm_free(kmsg)` çağrılıyor! Önbellekten alınan tampon nesnesi genel allocator fonksiyonuna atılınca önbellek yapısı bozuluyor ve zincirleme bellek kilitlenmesi yaşanıyor. Buranın az önce kurşun geçirmez yaptığımız `ipc_kmsg_free()` ile temizlenmesi gerekir.
++
++- **`copyinmsg` için size Üst Sınır Kontrolü Yok:** \
++Kullanıcı alanı saçma bir size gönderdiğinde (örneğin 2 GB), bu **kontrol edilmeden** kernel allocator'a fırlatılıyor.
++
++### Son Hali (`ipc_kmsg_get()`):
++
++```C
++/*
++ *  Routine:    ipc_kmsg_get
++ *  Purpose:    Allocates a kernel message buffer and copies user message.
++ *  Author:     Alperen ERKAN (2026)
++ */
++mach_msg_return_t
++ipc_kmsg_get(
++    mach_msg_user_header_t  *msg,
++    mach_msg_size_t         size,
++    ipc_kmsg_t              *kmsgp)
++{
++    ipc_kmsg_t      kmsg;
++    mach_msg_size_t ksize;
++
++    /* 1. Alt sınır ve hiza kontrolü */
++    if (unlikely((size < sizeof(mach_msg_user_header_t)) || 
++                 mach_msg_user_is_misaligned(size)))
++        return MACH_SEND_MSG_TOO_SMALL;
++
++    /* 2. Üst sınır ve Integer Overflow koruması */
++    if (unlikely(size > IKM_SAVED_MAX || 
++                 size > (MACH_MSG_SIZE_MAX / IKM_EXPAND_FACTOR)))
++        return MACH_SEND_NO_BUFFER;
++
++    ksize = size * IKM_EXPAND_FACTOR;
++
++    /* 3. Tampon tahsisi */
++    if (ksize <= IKM_SAVED_MSG_SIZE) {
++        kmsg = ikm_cache_alloc();
++        if (unlikely(kmsg == IKM_NULL))
++            return MACH_SEND_NO_BUFFER;
++    } else {
++        kmsg = ikm_alloc(ksize);
++        if (unlikely(kmsg == IKM_NULL))
++            return MACH_SEND_NO_BUFFER;
++        ikm_init(kmsg, ksize);
++    }
++
++    /* 4. Güvenli kopyalama ve hata durumunda doğru kmsg temizliği */
++    if (unlikely(copyinmsg(msg, &kmsg->ikm_header, size, kmsg->ikm_size))) {
++        ipc_kmsg_free(kmsg); /* ikm_free yerine güvenli ipc_kmsg_free kullanımı */
++        return MACH_SEND_INVALID_DATA;
++    }
++
++    *kmsgp = kmsg;
++    return MACH_MSG_SUCCESS;
++}
++
++/*
++ *  Routine:    ipc_kmsg_get_from_kernel
++ *  Purpose:    Allocates a kernel message buffer for internal kernel messages.
++ *  Author:     Alperen ERKAN (2026)
++ */
++extern mach_msg_return_t
++ipc_kmsg_get_from_kernel(
++    mach_msg_header_t   *msg,
++    mach_msg_size_t     size,
++    ipc_kmsg_t          *kmsgp)
++{
++    ipc_kmsg_t kmsg;
++
++    assert(size >= sizeof(mach_msg_header_t));
++    assert(!mach_msg_kernel_is_misaligned(size));
++
++    if (unlikely(size > IKM_SAVED_MAX))
++        return MACH_SEND_NO_BUFFER;
++
++    kmsg = ikm_alloc(size);
++    if (unlikely(kmsg == IKM_NULL))
++        return MACH_SEND_NO_BUFFER;
++    ikm_init(kmsg, size);
++
++    memcpy(&kmsg->ikm_header, msg, size);
++    kmsg->ikm_header.msgh_size = size;
++
++    *kmsgp = kmsg;
++    return MACH_MSG_SUCCESS;
++}
++```
++
++---
++
+-- 
+2.43.0
+
