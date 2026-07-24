@@ -445,10 +445,13 @@ ipc_kmsg_clean_partial(
  *	Routine:	ipc_kmsg_free
  *	Purpose:
  *		Free a kernel message buffer.
+ *  Author: GNU
  *	Conditions:
  *		Nothing locked.
  */
 
+/*
+OLD Version
 void
 ipc_kmsg_free(ipc_kmsg_t kmsg)
 {
@@ -457,7 +460,7 @@ ipc_kmsg_free(ipc_kmsg_t kmsg)
 	switch (size) {
 
 	    case IKM_SIZE_NETWORK:
-		/* return it to the network code */
+		// return it to the network code 
 		net_kmsg_put(kmsg);
 		break;
 
@@ -467,7 +470,37 @@ ipc_kmsg_free(ipc_kmsg_t kmsg)
 	}
 }
 
+*/
+
 /*
+void
+ipc_kmsg_free(ipc_kmsg_t kmsg)
+{
+	vm_size_t size;
+
+	* Early exit: NULL kmsg protection *
+	if (unlikely(kmsg == IKM_NULL))
+		return;
+
+	size = kmsg->ikm_size;
+
+	* Network buffer offload *
+	if (size == IKM_SIZE_NETWORK) {
+		net_kmsg_put(kmsg);
+		return;
+	}
+
+	* Sanity check: Size bounds validation before kfree *
+	if (unlikely(size == 0 || size > IKM_SAVED_MAX)) {
+		printf("ipc_kmsg_free: corrupt kmsg size (%lu), leaking to prevent crash\n",
+		       (unsigned long)size);
+		return;
+	}
+
+	kfree((vm_offset_t) kmsg, size);
+}
+
+*
  *	Routine:	ipc_kmsg_get
  *	Purpose:
  *		Allocates a kernel message buffer.
@@ -480,7 +513,7 @@ ipc_kmsg_free(ipc_kmsg_t kmsg)
  *		MACH_SEND_MSG_TOO_SMALL	Message size not long-word multiple.
  *		MACH_SEND_NO_BUFFER	Couldn't allocate a message buffer.
  *		MACH_SEND_INVALID_DATA	Couldn't copy message data.
- */
+ *
 
 mach_msg_return_t
 ipc_kmsg_get(
@@ -514,7 +547,7 @@ ipc_kmsg_get(
 	return MACH_MSG_SUCCESS;
 }
 
-/*
+*
  *	Routine:	ipc_kmsg_get_from_kernel
  *	Purpose:
  *		Allocates a kernel message buffer.
@@ -525,8 +558,7 @@ ipc_kmsg_get(
  *	Returns:
  *		MACH_MSG_SUCCESS	Acquired a message buffer.
  *		MACH_SEND_NO_BUFFER	Couldn't allocate a message buffer.
- */
-
+ *
 extern mach_msg_return_t
 ipc_kmsg_get_from_kernel(
 	mach_msg_header_t 	*msg,
@@ -548,6 +580,86 @@ ipc_kmsg_get_from_kernel(
 	kmsg->ikm_header.msgh_size = size;
 	*kmsgp = kmsg;
 	return MACH_MSG_SUCCESS;
+}
+*/
+
+/*
+ *  Routine:    ipc_kmsg_get
+ *  Purpose:    Allocates a kernel message buffer and copies user message.
+ *  Author:     Alperen ERKAN (2026)
+ */
+mach_msg_return_t
+ipc_kmsg_get(
+    mach_msg_user_header_t  *msg,
+    mach_msg_size_t         size,
+    ipc_kmsg_t              *kmsgp)
+{
+    ipc_kmsg_t      kmsg;
+    mach_msg_size_t ksize;
+
+    /* 1. Alt sınır ve hiza kontrolü */
+    if (unlikely((size < sizeof(mach_msg_user_header_t)) || 
+                 mach_msg_user_is_misaligned(size)))
+        return MACH_SEND_MSG_TOO_SMALL;
+
+    /* 2. Üst sınır ve Integer Overflow koruması */
+    if (unlikely(size > IKM_SAVED_MAX || 
+                 size > (MACH_MSG_SIZE_MAX / IKM_EXPAND_FACTOR)))
+        return MACH_SEND_NO_BUFFER;
+
+    ksize = size * IKM_EXPAND_FACTOR;
+
+    /* 3. Tampon tahsisi */
+    if (ksize <= IKM_SAVED_MSG_SIZE) {
+        kmsg = ikm_cache_alloc();
+        if (unlikely(kmsg == IKM_NULL))
+            return MACH_SEND_NO_BUFFER;
+    } else {
+        kmsg = ikm_alloc(ksize);
+        if (unlikely(kmsg == IKM_NULL))
+            return MACH_SEND_NO_BUFFER;
+        ikm_init(kmsg, ksize);
+    }
+
+    /* 4. Güvenli kopyalama ve hata durumunda doğru kmsg temizliği */
+    if (unlikely(copyinmsg(msg, &kmsg->ikm_header, size, kmsg->ikm_size))) {
+        ipc_kmsg_free(kmsg); /* ikm_free yerine güvenli ipc_kmsg_free kullanımı */
+        return MACH_SEND_INVALID_DATA;
+    }
+
+    *kmsgp = kmsg;
+    return MACH_MSG_SUCCESS;
+}
+
+/*
+ *  Routine:    ipc_kmsg_get_from_kernel
+ *  Purpose:    Allocates a kernel message buffer for internal kernel messages.
+ *  Author:     Alperen ERKAN (2026)
+ */
+extern mach_msg_return_t
+ipc_kmsg_get_from_kernel(
+    mach_msg_header_t   *msg,
+    mach_msg_size_t     size,
+    ipc_kmsg_t          *kmsgp)
+{
+    ipc_kmsg_t kmsg;
+
+    assert(size >= sizeof(mach_msg_header_t));
+    assert(!mach_msg_kernel_is_misaligned(size));
+
+    if (unlikely(size > IKM_SAVED_MAX))
+        return MACH_SEND_NO_BUFFER;
+
+    kmsg = ikm_alloc(size);
+    if (unlikely(kmsg == IKM_NULL))
+        return MACH_SEND_NO_BUFFER;
+    ikm_init(kmsg, size);
+
+    memcpy(&kmsg->ikm_header, msg, size);
+    kmsg->ikm_header.msgh_size = size;
+
+    *kmsgp = kmsg;
+    return MACH_MSG_SUCCESS;
 }
 
 /*
