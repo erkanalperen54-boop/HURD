@@ -445,7 +445,7 @@ ipc_kmsg_clean_partial(
  *	Routine:	ipc_kmsg_free
  *	Purpose:
  *		Free a kernel message buffer.
- *  Author: GNU
+ *  Author: Alperen ERKAN (2026)
  *	Conditions:
  *		Nothing locked.
  */
