@@ -1,0 +1,172 @@
+diff --git a/gnumach/ipc/ipc_mqueue.c b/gnumach/ipc/ipc_mqueue.c
+index f770afb..834eb16 100644
+--- a/gnumach/ipc/ipc_mqueue.c
++++ b/gnumach/ipc/ipc_mqueue.c
+@@ -3,7 +3,6 @@
+  * Copyright (c) 1991,1990,1989 Carnegie Mellon University.
+  * Copyright (c) 1993,1994 The University of Utah and
+  * the Computer Systems Laboratory (CSL).
+- * Copyright (c) 2026 Alperen ERKAN - Stux6 Technology
+  * All rights reserved.
+  *
+  * Permission to use, copy, modify and distribute this software and its
+@@ -28,11 +27,11 @@
+  * the rights to redistribute these changes.
+  */
+ /*
+- *	File:	ipc/ipc_mqueue.c
+- *	Author:	Rich Draves
+- *	Date:	2026 
++ *  File:   ipc/ipc_mqueue.c
++ *  Author: Rich Draves / Alperen ERKAN 
++ *  Date:   2026 
+  *
+- *	Functions to manipulate IPC message queues.
++ *  Functions to manipulate IPC message queues.
+  */
+ 
+ #include <mach/port.h>
+@@ -52,6 +51,10 @@
+ #include <ipc/ipc_space.h>
+ #include <ipc/ipc_marequest.h>
+ 
++/* 
++ * An absolute message queue upper limit to prevent OOM and memory exhaustion.
++ */
++#define IPC_MQUEUE_HARD_LIMIT 65536
+ 
+ 
+ /*
+@@ -156,6 +159,8 @@ ipc_mqueue_changed(
+ 
+ /*
+  *	Routine:	ipc_mqueue_send
++ *  Author :    Alperen ERKAN 
++ * 						 2026
+  *	Purpose:
+  *		Send a message to a port.  The message holds a reference
+  *		for the destination port in the msgh_remote_port field.
+@@ -180,8 +185,16 @@ ipc_mqueue_send(
+ {
+ 	ipc_port_t port;
+ 
++	/* Defensive C: Checking the incoming message object and destination port */
++	if (kmsg == IKM_NULL) {
++    	return MACH_SEND_INVALID_DATA;
++	}
++
+ 	port = (ipc_port_t) kmsg->ikm_header.msgh_remote_port;
+-	assert(IP_VALID(port));
++
++	if (!IP_VALID(port)) {
++   	   return MACH_SEND_INVALID_DEST;
++	}
+ 
+ 	ip_lock(port);
+ 
+@@ -230,17 +243,17 @@ ipc_mqueue_send(
+ 		}
+ 
+ 		/*
+-		 *  Don't block if:
+-		 *	1) We're under the queue limit.
+-		 *	2) Caller used the MACH_SEND_ALWAYS internal option.
+-		 *	3) Message is sent to a send-once right.
+-		 */
+-
+-		if ((port->ip_msgcount < port->ip_qlimit) ||
+-		    (option & MACH_SEND_ALWAYS) ||
+-		    (MACH_MSGH_BITS_REMOTE(kmsg->ikm_header.msgh_bits) ==
+-						MACH_MSG_TYPE_PORT_SEND_ONCE))
+-			break;
++         *  Don't block if:
++         *  1) We're under the queue limit.
++         *  2) Caller used MACH_SEND_ALWAYS but we are under the hard safety limit.
++         *  3) Message is sent to a send-once right.
++         */
++
++        if ((port->ip_msgcount < port->ip_qlimit) ||
++            ((option & MACH_SEND_ALWAYS) && (port->ip_msgcount < IPC_MQUEUE_HARD_LIMIT)) ||
++            (MACH_MSGH_BITS_REMOTE(kmsg->ikm_header.msgh_bits) ==
++                        MACH_MSG_TYPE_PORT_SEND_ONCE))
++            break;
+ 
+ 		/* must block waiting for queue to clear */
+ 
+@@ -263,45 +276,49 @@ ipc_mqueue_send(
+ 		counter(c_ipc_mqueue_send_block++);
+ 		thread_block(thread_no_continuation);
+ 		ip_lock(port);
+-
++  
+ 		/* why did we wake up? */
+ 
+-		if (self->ith_state == MACH_MSG_SUCCESS)
+-			continue;
+-		assert(self->ith_state == MACH_SEND_IN_PROGRESS);
++        if (self->ith_state == MACH_MSG_SUCCESS) {
++            self->ith_state = MACH_MSG_SUCCESS; // veya temiz durum sıfırlaması
++            continue;
++        }
++        assert(self->ith_state == MACH_SEND_IN_PROGRESS);
+ 
+-		/* take ourselves off blocked queue */
++        /* take ourselves off blocked queue under port lock */
++        ipc_thread_rmqueue(&port->ip_blocked, self);
++        
++        /* [DEFENSIVE]: Clear state to prevent stale status reuse */
++        self->ith_state = MACH_MSG_SUCCESS;
+ 
+-		ipc_thread_rmqueue(&port->ip_blocked, self);
++        /*
++         *  Thread wakeup-reason field tells us why
++         *  the wait was interrupted.
++         */
+ 
+-		/*
+-		 *	Thread wakeup-reason field tells us why
+-		 *	the wait was interrupted.
+-		 */
++        switch (self->ith_wait_result) {
++            case THREAD_INTERRUPTED:
++            /* send was interrupted - give up */
+ 
+-		switch (self->ith_wait_result) {
+-		    case THREAD_INTERRUPTED:
+-			/* send was interrupted - give up */
++            ip_unlock(port);
++            return MACH_SEND_INTERRUPTED;
+ 
+-			ip_unlock(port);
+-			return MACH_SEND_INTERRUPTED;
++            case THREAD_TIMED_OUT:
++            /* timeout expired */
+ 
+-		    case THREAD_TIMED_OUT:
+-			/* timeout expired */
+-
+-			assert(option & MACH_SEND_TIMEOUT);
+-			time_out = 0;
+-			break;
++            assert(option & MACH_SEND_TIMEOUT);
++            time_out = 0;
++            break;
+ 
+-		    case THREAD_RESTART:
+-		    default:
++            case THREAD_RESTART:
++            default:
+ #if MACH_ASSERT
+-			assert(!"ipc_mqueue_send");
++            assert(!"ipc_mqueue_send: unexpected thread wakeup result");
+ #else
+-			panic("ipc_mqueue_send");
++            panic("ipc_mqueue_send");
+ #endif
+-		}
+-	}
++        }
++    }
+ 
+ 	if (kmsg->ikm_header.msgh_bits & MACH_MSGH_BITS_CIRCULAR) {
+ 		ip_unlock(port);
