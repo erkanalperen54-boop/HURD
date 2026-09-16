@@ -1,6 +1,7 @@
 /* Boot script parser for Mach.  */
 
 /* Written by Shantanu Goel (goel@cs.columbia.edu).  */
+/* Copyright (C) 2026 Alperen ERKAN */
 
 #include <mach/mach_types.h>
 #if !KERNEL || OSKIT_MACH
@@ -339,7 +340,10 @@ boot_script_parse_line (void *hook, char *cmdline)
 
 	      /* Only values are allowed in ${...} constructs.  */
 	      if (end_char == '}' && s->type == VAL_FUNC)
-		return BOOT_SCRIPT_INVALID_SYM;
+		{
+		  error = BOOT_SCRIPT_INVALID_SYM;
+		  goto bad;
+		}
 
 	      /* Check that assignment is valid.  */
 	      if (c == '=' && s->type == VAL_FUNC)
@@ -555,9 +559,17 @@ boot_script_exec (void)
 		{
 		  struct sym *sym = (struct sym *) arg->val;
 
-		  /* Resolve symbol value.  */
-		  while (sym->type == VAL_SYM)
+		  /* Resolve symbol value.  Guard against reference
+		     cycles.  */
+		  unsigned int depth = 0;
+		  while (sym->type == VAL_SYM
+			 && depth++ <= (unsigned int) symtab_index)
 		    sym = (struct sym *) sym->val;
+		  if (sym->type == VAL_SYM)
+		    {
+		      error = BOOT_SCRIPT_SYNTAX_ERROR;
+		      goto done;
+		    }
 		  if (sym->type == VAL_NONE)
 		    {
 		      error = BOOT_SCRIPT_UNDEF_SYM;

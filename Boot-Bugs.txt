@@ -1,0 +1,436 @@
+================================================================================
+GNU/Hurd hurd/boot/ AV RAPORU
+Klasör: hurd/boot/ (boot.c, boot_script.c, boot_script.h, userland-boot.c,
+                    private.h, mig-decls.h, mig-mutate.h, Makefile)
+Rapor tarihi: 2026-09-03
+Kaynak: booting-error-plan.md doğrulaması + boot/ klasörü tam taraması
+Satır numaraları bu kopyadaki gerçek satırlardır.
+================================================================================
+
+Bu dosya tartışma ve yama hazırlığı için çalışma belgesidir.
+Her bulgu: [KİMLİK] önem / kesinlik / konum / durum / düzeltme / test.
+
+--------------------------------------------------------------------------------
+BÖLÜM A — boot.c DOĞRULANMIŞ BULGULAR (plan kaynaklı, bu kopyada teyit edildi)
+--------------------------------------------------------------------------------
+
+[BOOT-QUEUE-001] Kritik / Kesin / boot.c:844-849 / DOĞRULANDI
+  queue_read'de kuyruk boş değilken qrtail ilerletilmiyor.
+    qr->next = 0;
+    if (qrtail) qrtail->next = qr; else qrhead = qrtail = qr;
+  2. ve sonraki istekler kaybolur; reply port right + heap sızar;
+  istemciler sonsuza kadar bekler. Dequeue sonrası head/tail geçersiz duruma
+  düşer (head=C, tail=NULL).
+  Düzeltme:
+    if (qrtail) qrtail->next = qr; else qrhead = qr;
+    qrtail = qr;
+  Test: 3 eşzamanlı read isteği + 3 input parçası → FIFO reply, kuyruk boşalır.
+
+[CAP-001] Kritik / Kesin / boot.c:2026-2033 / DOĞRULANDI
+  S_host_reboot hedef portu doğrulamıyor. Ortak port-set + msgh_id demux
+  nedeniyle herhangi bir pseudo porta send right'ı olan iç task boot'u
+  kapatabilir (çapraz-protokol RPC).
+  Düzeltme: host_priv != pseudo_privileged_host_port → KERN_INVALID_HOST.
+  NUANS: privileged modda pseudo_privileged_host_port MACH_PORT_NULL kalır
+  (allocate_pseudo_ports yalnızca !privileged'da çağrılır, boot.c:622).
+  Privileged mod davranışı ayrıca tanımlanmalı.
+  Test: host_reboot sırayla pseudo_console/pseudo_root/pseudo_time/pseudo_pset/
+  pseudo_master_device_port'a gönderilmeli; hiçbiri süreci kapatmamalı.
+
+[CAP-002] Kritik / Kesin / boot.c:2135-2170 / DOĞRULANDI
+  S_processor_set_tasks processor_set parametresini hiç kullanmıyor.
+  Yanlış port üzerinden tüm task portları ifşa olur.
+  Düzeltme: processor_set != pseudo_pset → KERN_INVALID_ARGUMENT (veya stub'ın
+  beklediği kod). Generated stub disposition (MOVE_SEND mi COPY_SEND mi) ayrıca
+  doğrulanmalı.
+
+[MEM-001] Kritik / Yüksek olasılık / boot.c:1144, 1205 / DOĞRULANDI
+  In-band read boyu sınırlandırılmıyor: read(0, data, bytes_wanted) sabit MIG
+  in-band tamponuna doğrudan. Root yolunda da data_size = bytes_wanted
+  (boot.c:1224) gerçek kapasite yerine istenen boy.
+  Düzeltme: bytes_wanted < 0 → ret; > IO_INBAND_MAX → ret veya kırp;
+  store_read'e gerçek kapasite ver. Savunma stub'a değil uygulama katmanına.
+
+[CONC-001] Yüksek / Kesin / boot.c:856, 870-875, 948-949 / DOĞRULANDI
+  should_read düz int, iki thread arasında kilit dışı okunuyor/yazılıyor.
+  C data race = UB. volatile çözüm değil.
+  Düzeltme: read talepleri + stdin readiness tek mutex/condvar durum makinesi;
+  küçük yamada _Atomic bool + açık memory order.
+
+[LIVE-001] Yüksek / Kesin / boot.c:1624-1669, 1672-1678 / DOĞRULANDI
+  S_io_select timeout olmadan host select() çağırır; message thread içinde
+  işlendiğinden bütün pseudo-kernel hizmeti bloke olur (device_open, console
+  write, task notification, ...).
+  Çözüm: asenkron waiter kuyruğu + readiness'te MIG reply; ya da ayrı worker
+  thread (task_ihash vb. için yeni kilitler gerekir). En tutarlı: merkezi
+  event-loop/poll thread.
+
+[IO-001] Yüksek / Kesin / boot.c:877-883 + ana döngü 787-797 / DOĞRULANDI
+  EOF, FIONREAD==0'dan ayrılmıyor. select EOF'ta sürekli readable döner,
+  read_reply her seferinde read yapmadan döner → CPU busy-loop + bekleyen
+  read cevapsız kalır.
+  Düzeltme: readiness sonrası nonblocking read dene veya poll
+  POLLIN/POLLHUP ayrımı.
+
+[IO-002] Yüksek / Kesin / boot.c:885-891 / DOĞRULANDI
+  Veri var, kuyruk boş → ana döngü select/read_reply döngüsünde CPU yakıyor.
+  Düzeltme: input ring buffer ya da waiter yokken stdin poll etmeme.
+
+[DEV-001] Yüksek / Kesin / boot.c:1254-1271 / DOĞRULANDI
+  ds_device_map: io_map hatası D_SUCCESS'e çevriliyor; *pager geçersiz olabilir.
+  İstemci başarılı mapping sanır; sonraki vm_map/pager RPC hatası kopuk görünür.
+  Düzeltme: err'i device/Mach koduna çevir; hata halinde *pager = null.
+
+[AUTH-001/002/003] Yüksek / Kesin / boot.c:1704-1742 / DOĞRULANDI
+  - authserver global sıfır-init NULL; fonksiyon tasarım gereği çalışamaz
+    (kaynak XXX yorumu bunu kabul ediyor).
+  - Gerçek hata istemciye iletilmiyor: sonunda return 0.
+  - Cleanup copy-paste: boot.c:1733-1736 → gu, au, gg, tekrar au.
+    ag hiç deallocate edilmiyor, au iki kez.
+    Son satır olmalı: mig_deallocate((vm_address_t) ag, aglen * sizeof *ag);
+  Kısa vade: auth entegrasyonu yoksa EOPNOTSUPP dön (sahte başarı açık
+  hatadan tehlikeli).
+
+[TASK-001] Yüksek / Yüksek olasılık / boot.c:2143-2168 / DOĞRULANDI (çift yüz)
+  - Hash boşsa (2143-2147): pseudo_kernel bile listeye girmiyor → erken boot'ta
+    ext2fs boş task listesi görür.
+  - Hash dolu, pseudo_kernel içerde değilse: nr_items elemanlık diziye
+    nr_items+1 yazımı (pseudo_kernel koşulsuz [0]'a konur, 2155).
+  Sağlam çözüm: pseudo_kernel hash'te mi kontrol et; kapasite =
+  nr_items + (missing ? 1 : 0); *task_listCnt = i (doldurulan).
+
+[MEM-002] Yüksek / Kesin (tür) + ABI (tetik) / boot.c:820, 906 / DOĞRULANDI
+  struct qr.amount = int; S_io_read'den vm_size_t geliyor → daralma/negatif.
+  buf = alloca(qr->amount) → stack overflow / dev allocation / süreç düşürme.
+  Düzeltme: uygun unsigned geniş tür + protokol üst sınırı + alloca kaldır.
+
+[MEM-003] Orta-Yüksek / Koşullu / boot.c:900-935 (read_reply), 1144-1152 / DOĞRULANDI sınıfı
+  OOL read'te mmap tam istenen boy, read() daha az dönebilir; kısa read'de
+  tail sayfalar sızabilir. read() hatasında buffer reply'a eklenmez, açık
+  munmap yok. Reply send hatası yok sayılır.
+  Düzeltme: başarısız read'de munmap; kısa read'de tail temizliği;
+  reply sonucunu kontrol et; sayfa yuvarlamasını tek yerde takip et.
+
+[IO-003] Orta / Kesin / boot.c:900-904 / DOĞRULANDI
+  amount == 0 queue'ya girerse mmap(...,0,...) → EINVAL → assert → süreç düşer.
+  Düzeltme: sıfır uzunluk enqueue edilmeden 0-byte başarı ile cevapla.
+
+[IO-004] Orta / Kesin / boot.c:877, 1141, 1202, 1492, 1544 / DOĞRULANDI
+  ioctl(FIONREAD) dönüşü kontrol edilmiyor; avail initialize edilmeden
+  kullanılabilir (indeterminate). S_io_readable hata kodu dönmeli, output'u
+  güvenli değere çekmeli.
+
+[IO-005] Orta / Kesin / boot.c:1640-1657 / DOĞRULANDI
+  SELECT_WRITE fd 0 (stdin) üzerinde izleniyor; console write fd 1'e gidiyor.
+  Düzeltme: write isteniyorsa fd 1 w-set'e; nfds = 2.
+
+[TASK-002] Orta / Kesin / boot.c:2112 / DOĞRULANDI
+  mach_port_mod_refs(+1) dönüşü kontrol edilmiyor; başarısızsa hash yine
+  eklenir, cleanup var olmayan referans düşmeye çalışır.
+
+[TASK-003] Orta / Yüksek olasılık / boot.c:2103-2133 / DOĞRULANDI sınıfı
+  fail: yalnızca task_terminate(task). Başarı yolunun sahiplik tablosu
+  (task, parent, dead-name request disposition'ları) her yol için çıkarılmalı;
+  hash-add hatasında geri alma dengeli olmalı.
+
+[INIT-001] Orta / Kesin / boot.c:570-641 (ana akış), 410-447 / DOĞRULANDI
+  mach_port_allocate/insert_right/move_member/request_notification/task_set_name
+  dönüşleri yaygın yok sayılıyor. Port-space tükenmesinde yarı kurulmuş
+  topology ile devam. Transactional kurulum + ters sıralı cleanup gerekli.
+
+[INIT-002] Orta / Kesin / boot.c:404-450 / DOĞRULANDI
+  allocate_pseudo_ports error_t döndürüp daima 0 döndürüyor; main hata
+  kontrolü varmış gibi davranıyor (boot.c:624-626). Alt çağrıları
+  denetleyip ilk hatada geri dön.
+
+[THREAD-001] Orta / Kesin / boot.c:778-785 / DOĞRULANDI
+  pthread_create başarısızsa yalnız perror; ana döngü çalışır, hiçbir Mach
+  RPC işlenmez → yarı-canlı süreç. Fatal init hatası olmalı.
+
+[SCRIPT-001] Orta / Kesin / boot.c:480-481 / DOĞRULANDI
+  read() i < 0 EOF gibi kabul ediliyor; EINTR yeniden denenmeli, diğer errno
+  dosya adıyla raporlanmalı. Yarım script geçerliymiş gibi parse edilebilir.
+
+[SCRIPT-002] Orta / Kesin / boot.c:330-331, 381, 709 / DOĞRULANDI
+  add_dev_map'te iki strdup kontrolsüz → OOM'da NULL isimli map →
+  lookup_dev'de strcmp(NULL,...) çökmesi. parse_opt 'f' kolu dönüşü yok sayar.
+  strdup(default_boot_script) de kontrolsuz.
+
+[SCRIPT-003] Düşük-Orta / Kesin / boot.c:488 / DOĞRULANDI
+  Script tamponu 500'er byte doğrusal büyüyor. Geometrik (len*2) + overflow
+  denetimi.
+
+[SCRIPT-004] Düşük / Kesin / boot.c:676-677 / DOĞRULANDI
+  Kernel command line alloca ile stack'e kopyalanıyor; strlen+1 önce int'e
+  atanıyor. Heap + size_t. (alloca ömrü blok değil fonksiyon dönüşüdür;
+  main dönmediği için use-after-free yok; sorun kapasite/tür.)
+
+[SCRIPT-005] Düşük / Tasarım / boot.c:680-699 + boot_script.c:667-677 / DOĞRULANDI
+  FOO=BAR parser'ı quoting/escape desteklemiyor. boot_script_set_variable
+  yeniden tanımlamayı ve tip değişimini koşulsuz kabul ediyor → özel boot
+  değişkenleri (host-port vb.) komut satırıyla override edilebilir.
+  Reserved ad politikası açıkça tanımlanmalı.
+
+[SCRIPT-006] Düşük / Kesin / boot.c:717 / DOĞRULANDI
+  boot_script_parse_line(0, line) → hata mesajında satır numarası yok.
+  Gerçek line counter geçirilmeli (parser API izin veriyor).
+
+[TTY-001] Orta / Kesin / boot.c:102-106, 755 / DOĞRULANDI
+  host_exit her durumda restore_termstate çağırır; init_termstate öncesi
+  hatalarda global sıfır-init orig_tty_state fd 0'a uygulanır.
+  termstate_initialized bayrağı gerekli.
+
+[TTY-002] Orta / Kesin / boot.c genel / DOĞRULANDI sınıfı
+  Raw moddan sonra sinyal/abort yolları terminali raw bırakabilir.
+  atexit ile idempotent restore; SIGTSTP öncesi restore / SIGCONT sonrası
+  raw dönüş; assertion yerine cleanup-aware hata.
+
+[DEV-002] Orta / Kesin / boot.c:1034-1040 / DOĞRULANDI
+  ds_device_close console ve root'u tanır; pseudo_time açılabilir kabul
+  edilmesine rağmen kapatılamaz (D_NO_SUCH_DEVICE). Protokol tutarsızlığı.
+
+[STATUS-001] Orta / Koşullu / boot.c:1298-1312 / DOĞRULANDI sınıfı
+  root_store->size/blocks/block_size dev_status_t alanlarına doğrudan yazılıyor;
+  dev_status_data_t daha darsa büyük disk truncate olur. _Static_assert +
+  sınır kontrolü (NeOx64'te özellikle).
+
+[NOTIFY-001] Düşük / Kesin / boot.c:1373-1414 / DOĞRULANDI
+  İşlenen no-senders olayları çoğunlukla EOPNOTSUPP döndürüyor; reply portu
+  olmadığından etki sınırlı ama işlenen olayda başarı dönmek daha doğru.
+
+[ERROR-001] Düşük-Orta / Kesin / boot.c:903, 1394, 1719 + read_boot_script
+  yolları / DOĞRULANDI
+  Çevresel hatalar (mmap, kısa write, EINTR, insert_right) assertion ile
+  ele alınıyor → hizmeti gereksiz düşürür. Controlled error + cleanup.
+
+[ERROR-002] Düşük / Kesin / boot.c:1065, 1071, 1169-1170, 1240 / DOĞRULANDI
+  Ayrıntılı store/device hataları D_IO_ERROR altında kayboluyor. Verbose'da
+  özgün errno loglanmalı.
+
+[API-001] Düşük / Kesin / boot.c:1690-1702 / DOĞRULANDI
+  S_io_stat neredeyse tamamen sıfır stat döndürüyor; S_ISCHR/erişim bitlerine
+  güvenen istemci uyumsuzluk görür. Kasitlıysa belgelenmeli.
+
+[MAINT-001] Düşük / Kesin / boot.c:35, 62 / DOĞRULANDI
+  <fcntl.h> iki kez include; envp kullanılmaz; reply port/type parametreleri
+  (void) ile işaretlenmemiş; fsname, php_child_name/psmdp_child_name/taskname,
+  child_task/bootport, fs_stack_base/size bu dosyada kullanılmaz
+  (private.h/TTU gereksinimi doğrulanmalı — private.h'te yalnızca verbose var,
+  yani bu global'ler gerçekten ölü).
+  ld.so yorumu exec.static komutuyla uyuşmuyor (boot.c:525-531).
+  filemsg/memmsg write(..., sizeof msg) → sonlandırıcı NUL de yazılıyor;
+  sizeof msg - 1 kullanılmalı (boot.c:465, 472, 493).
+  root_store_name, dev_map listesi, bazı command-line allocation'ları süreç
+  ömrüne bırakılıyor (küçük, sabit, önemsiz sınıf; reload eklenirse ele al).
+
+--------------------------------------------------------------------------------
+BÖLÜM B — YENİ BULGULAR (plan kapsamı dışı: boot_script.c, userland-boot.c)
+--------------------------------------------------------------------------------
+
+[PARSER-001] Yüksek / Kesin / boot_script.c:559-560 / YENİ
+  VAL_SYM çözümleme çevrim algılamasız:
+    while (sym->type == VAL_SYM) sym = (struct sym *) sym->val;
+  Boot script'iyle kalıcı asma: örn. satırda $(a=b) $(b=a) ... ${a} ...
+  → a→b→a sonsuz döngü, boot_script_exec asılı kalır. Sahte image gerekmez,
+  sıradan bir boot-script satırı yeterli.
+  Düzeltme: ziyaret edilen sym işaretçilerini küçük bir set'te tut;
+  çevrimde BOOT_SCRIPT_SYNTAX_ERROR.
+  Test: $(a=b) $(b=a) ${a} içeren script → kontrollü parse hatası, asma yok.
+
+[PARSER-002] Orta / Kesin / boot_script.c:341-342 / YENİ
+    if (end_char == '}' && s->type == VAL_FUNC)
+      return BOOT_SCRIPT_INVALID_SYM;
+  Bu return bad: etiketini atlıyor → free_cmd(cmd,1) ve cleanup(1)
+  çalışmıyor. Satırın başında $(task-create) koştuysa: task terminate
+  edilmiyor + send right sızıyor + önceki satırların task'ları terminate
+  edilmeden kalıyor. Diğer tüm parse hatalarıyla tutarsız davranış.
+  Düzeltme: goto bad.
+  Test: ${task-create} içeren satır → tüm task'lar temiz terminate.
+
+[LOADER-001] Yüksek / Kesin / userland-boot.c:202 / YENİ
+    ElfW(Phdr) phdrs[hdr.e.e_phnum], *ph;
+  e_phnum boot edilen dosyanın başlığından gelir (güvenilmez). ELF32'de
+  azami 65535 × 32B ≈ 2 MB VLA stack'te → stack smash. Ayrıca PN_XNUM
+  (0xffff) genişletilmiş sayım desteklenmiyor; dosya kısaysa read assert'ı
+  boot'u öldürür.
+  Düzeltme: e_phnum üst sınırı (ör. ≤ 1024) + heap allocation + read
+  sonucunu denetleyen kısa-read yolu.
+  Test: e_phnum=65535'lik sahte ELF başlığı → kontrollü ret, çöküş yok.
+
+[LOADER-002] Yüksek / Kesin / userland-boot.c:210, 221-224 / YENİ
+  PT_LOAD'da p_align == 0 → p_align - 1 = 0xFFFF...F;
+  p_memsz &= ~(...) → 0; p_memsz -= p_vaddr → negatiften dev vm_size_t →
+  vm_allocate devasa boy → boot DoS'u / çöküş. p_align'in 2'nin kuvveti
+  olduğu da doğrulanmıyor.
+  Düzeltme: p_align != 0 ve (p_align & (p_align-1)) == 0 kontrolü;
+  p_vaddr/p_memsz sınır denetimi.
+  Test: p_align=0 PT_LOAD → ret hatası, dev allocation yok.
+
+[LOADER-003] Yüksek / Kesin / userland-boot.c:262-265 / YENİ
+  a.out yolunda:
+    vm_allocate (t, &bsspagestart, hdr.a.a_bss - (bsspagestart - bssstart), 0);
+  bssstart sayfa sonuna yakın + küçük a_bss → bsspagestart - bssstart >
+  a_bss → negatif fark dev vm_size_t'ye dönüşür → devasa allocation.
+  Düzeltme: fark unsigned'a çevrilmeden önce signed kontrol; < 0 ise 0.
+  Test: a_bss küçük, bssstart sayfa sonuna 1-2 byte mesafede → normal boot.
+
+[LOADER-004] Orta / Kesin / userland-boot.c:196, 204, 218, 253, 263 / YENİ
+  Boot image okumalarında assert_backtrace(err == beklenen) kalıbı:
+  kısa read (truncate image, useropen-read arası TOCTOU) → assert →
+  süreç ölümü. Planın ERROR-001'inin loader versiyonu.
+  Düzeltme: kısa read'i controlled error'a çevir (log + task_terminate +
+  exit code), assert yalnızca gerçek programcı invariant'larında kalsın.
+
+[LOADER-005] Düşük / Kesin / userland-boot.c:117-138 / YENİ
+  boot_script_insert_right: name = NULL'tan başlayıp +1 ile KERN_NAME_EXISTS
+  olana kadar lineer tarama → O(n²) davranış; ayrıca name alanı tükenirse
+  (teorik) sonsuz sayıda deneme. Boot script'indeki port sayısı küçük
+  olduğundan pratik etki sınırlı; yine de üst sınır + errno raporu iyileştirir.
+
+[LOADER-006] Düşük / Kesin / userland-boot.c:312-317 / YENİ
+  boot_script_exec_cmd'de arg_len int üzerinden hesaplanıyor; dev stringlen/
+  argc ile int taşması teorik. stack penceresi sabit 16 MB (userland-boot.c:
+  315) — NeOx64'te thread stack boyutu politikası gözden geçirilmeli.
+  Ayrıca vm_allocate(thread stack)/thread_create dönüşleri kontrol edilmiyor
+  (INIT-001'in loader yüzü).
+
+--------------------------------------------------------------------------------
+BÖLÜM C — 64-bit / NeOx64 ÇAPRAZ KESİMLER (boot.c + loader)
+--------------------------------------------------------------------------------
+
+[C64-001] vm_size_t → int daralması: boot.c:820 (qr.amount) ana örnek.
+  Hurd I/O datalen mach_msg_type_number_t (boot.c:1473) ile vm_size_t
+  karışıyor; tür genişlik tablosu + _Static_assert gerekli.
+[C64-002] Store boyutları dev_status_t'a daralabilir: boot.c:1301-1310.
+[C64-003] intptr_t script değerleri doğru yönde (boot.c:660); boot_script
+  value storage tipi ayrıca kontrol edilmeli (boot_script.c:23 intptr_t — OK).
+[C64-004] mach_port_t hurd_ihash key/value çevrimleri (boot.c:2075-2077,
+  2113-2115) çoğu ABI'de güvenli; _Static_assert ile mühürlenmeli.
+[C64-005] recnum_t ↔ store adresi: birim (byte mı block mu) ve signedness
+  doğrulanmalı; sessiz daralma filesystem bozabilir (boot.c:1068-1072).
+[C64-006] Task listesi nr_items * sizeof **task_list çarpımında overflow
+  kontrolü yok (boot.c:2149-2150).
+[C64-007] Format string'ler: "Task '%u'" (boot.c:2083, 2101),
+  "%d: " task print (boot_script.c:742 BOOT_SCRIPT_TEST) — mach_port_t
+  ABI'si değişirse uyuşmazlık. PRI makroları/doğrulanmış cast.
+[C64-008] LOADER-001/002/003 64-bit'te daha sert patlar: 64 KB+ phdr sayısı
+  × 56B (ELF64) stack'i kesin keser.
+
+--------------------------------------------------------------------------------
+BÖLÜM D — OLUMLU TEYİTLER (dokunma, koru)
+--------------------------------------------------------------------------------
+
+- boot_demuxer proc-relay mantığı (boot.c:229-249) sağlam; forwarding
+  yorumları (boot.c:203-215) teknik olarak bilinçli.
+- Root store soyutlaması: gerçek device passthrough + pseudo-root yolu
+  esnek (boot.c:573-587).
+- Privilege ayrımı tasarımı doğru yönde (boot.c:73-79, 557-641).
+- Task death takibi: hash'te ek right + dead-name'de iki referansın
+  bırakılması düşünülmüş (boot.c:2068-2133); ihtiyaç invariant +
+  hata yollarının kesinleştirilmesi.
+- Makefile stub seti ve MIGSFLAGS doğru; io reply-port'lu, device
+  DEVICE_ENABLE_DEVICE_OPEN_NEW açık.
+- userland-boot.c x86_64/aarch64 thread-state dalları NeOx64 hedefine hazır
+  iskelet; yalnızca loader bulguları giderilmeli.
+- boot_script.c add_list/add_arg/free_cmd/cleanup ana sözleşmeleri tutarlı;
+  CHECK_CMDLINE_LEN argv yeniden hesabı doğru.
+
+--------------------------------------------------------------------------------
+BÖLÜM E — ÖNERİLEN DÜZELTME SIRASI (tartışma için)
+--------------------------------------------------------------------------------
+
+Aşama 1 — Bellek + capability güvenliği (küçük, bağımsız yamalar):
+  1. BOOT-QUEUE-001 (queue_read tail)          — tek satır
+  2. MEM-001 (in-band üst sınır) + IO-003 (0 boy)
+  3. MEM-002 (qr.amount türü + alloca kaldır)
+  4. CAP-001 (reboot port kontrolü + privileged mod politikası)
+  5. CAP-002 (pset port kontrolü)
+  6. TASK-001 (kapasite + pseudo_kernel hesabı)
+
+Aşama 2 — Canlılık + eşzamanlılık (mimari karar gerektirir, tartışalım):
+  1. CONC-001 (should_read → mutex/condvar veya _Atomic)
+  2. IO-001/IO-002 (EOF/HUP + busy-loop; ring buffer kararı)
+  3. LIVE-001 (S_io_select asenkronlaştırma / event-loop tasarımı)
+
+Aşama 3 — Hata yolları + kaynak sahipliği:
+  1. DEV-001 (ds_device_map gerçek hata)
+  2. AUTH-001/002/003 (EOPNOTSUPP politikası + ag/au cleanup)
+  3. MEM-003 (OOL mapping yaşam döngüsü)
+  4. TASK-002/TASK-003 (mod_refs + notification sahiplik tablosu)
+  5. INIT-001/002 + THREAD-001 (transactional init, fatal thread)
+  6. IO-004/IO-005 (FIONREAD dönüşü, SELECT_WRITE fd 1)
+
+Aşama 4 — Loader + parser (boot_script.c / userland-boot.c):
+  1. PARSER-001 (VAL_SYM çevrimi)          — boot kilitleme, öncelikli
+  2. LOADER-001/002/003 (phdr VLA, p_align, bss) — sahte image DoS'u
+  3. PARSER-002 (goto bad) + LOADER-004 (kısa read)
+  4. LOADER-005/006 (name tarama, arg_len/stack politikası)
+
+Aşama 5 — Terminal + script sağlamlaştırma:
+  1. TTY-001/TTY-002 (initialized bayrağı, atexit, sinyal)
+  2. SCRIPT-001..006 (read hata ayrımı, allocation, geometrik büyüme,
+     reserved değişken politikası, satır numarası)
+  3. DEV-002 (pseudo_time close) + NOTIFY-001 + ERROR-001/002 + API-001
+
+Aşama 6 — 64-bit/NeOx64 temizliği:
+  1. C64-001..008 (_Static_assert, tür tablosu, format string'ler,
+     büyük store testleri)
+
+--------------------------------------------------------------------------------
+AÇIK TARTIŞMA SORULARI (yama öncesi karar verilecek)
+--------------------------------------------------------------------------------
+Q1: CAP-001'de privileged modda S_host_reboot ne yapmalı? (kabul / reddet /
+    gerçek reboot'a proxy)
+Q2: LIVE-001 için model: asenkron waiter kuyruğu mu, ayrı worker thread mi,
+    yoksa merkezi poll thread mi? (task_ihash kilit etkisi var)
+Q3: IO-001/002'de stdin ring buffer boyutu politikası ne olsun?
+Q4: AUTH: reauthentication gerçekten implemente mi edilsin, yoksa
+    EOPNOTSUPP ile kapatılsın mı?
+Q5: S_io_read OOL üst sınırı sabit bir politika mı (ör. 1 MiB), vm_size_t
+    serbest mi?
+Q6: SCRIPT-005'te reserved değişkenler (host-port vb.) override edilebilir
+    mi, edilemiyor mu?
+Q7: NeOx64'te a.out desteği taşınmaya devam mı, yalnızca ELF mi?
+================================================================================
+
+================================================================================
+EK — DÜZELTME DURUMU (2026-09-03)
+================================================================================
+boot/boot.c, boot/boot_script.c, boot/userland-boot.c tamamlandı.
+git diff --stat: boot.c +1004/-446 satır (1173 değişen satır), boot_script.c 17,
+userland-boot.c 260. Commit yapılmadı.
+
+DÜZELTİLDİ: BOOT-QUEUE-001, CAP-001 (privileged modda pseudo port NULL olduğundan
+handler hiçbir hedefi kabul etmiyor), CAP-002, MEM-001, MEM-002, MEM-003
+(kısa read'de mapping daraltma + açık munmap), CONC-001 (should_read protokolü
+kaldırıldı), LIVE-001 (asenkron select: selq kuyruğu + select_thread + pipe),
+IO-001 (stdin_eof + EOF'ta kalan waiter'lara 0-byte reply), IO-002 (stdin yalnızca
+kuyruk doluyken poll ediliyor), IO-003, IO-004, IO-005, DEV-001, DEV-002,
+AUTH-001/002/003 (authserver NULL → EOPNOTSUPP; cleanup gu/au/gg/ag birer kez),
+TASK-001, TASK-002, TASK-003 (fail: terminate + task ve parent dealloc),
+INIT-001, INIT-002, THREAD-001, SCRIPT-001..006, TTY-001 (termstate_initialized),
+TTY-002 (sig_handler: SIGCONT re-raw, SIGTSTP restore+stop, SIGINT/TERM
+restore+raise; atexit), NOTIFY-001, ERROR-001 (write_diag/write_str ile assert
+kaldırıldı), ERROR-002, API-001, MAINT-001 (ölü global'ler, çift include,
+sizeof-1, ld.so yorumu), PARSER-001, PARSER-002, LOADER-001..006,
+C64-001/002/005/006/007 (üst sınır + overflow guard + %lu cast'leri).
+
+MİMARİ KARARLAR (Q1-Q7 son hali):
+Q1: S_host_reboot yalnızca pseudo_privileged_host_port'u kabul ediyor;
+    privileged modda bu port NULL → handler etkisiz.
+Q2: io_select asenkron: queue_select + select_thread (poll tabanlı, fd 0 read/
+    urg, fd 1 write, CLOCK_MONOTONIC deadline).
+Q3: stdin_eof atomik bayrağı; EOF'ta yeni read'lere anında 0-byte cevap.
+Q4: authserver NULL ise S_io_reauthenticate EOPNOTSUPP.
+Q5: CONSOLE_READ_MAX = 16 MiB (kırpma), in-band IO_INBAND_MAX (ret D_INVALID_SIZE).
+Q6: host-port/device-port/kernel-task/kernel-command-line/root-device/boot-args
+    komut satırı FOO=BAR ile override edilemez (uyarı + atlanır).
+Q7: a.out desteği korundu; LOADER-003 alt taşması düzeltildi.
+
+KALAN DOĞRULAMA (Hurd toolchain gerektirir):
+[ ] make -C hurd/boot gerçek derleme (makinede Mach header yok, derlenemedi)
+[ ] Q1-Q5 queue testleri (Boot-Bugs Bölüm 17'deki matris)
+[ ] io_select: bloklu select sırasında device_open/write çalışmalı
+[ ] EOF: pipe stdin, writer kapanınca bekleyen read 0 byte almalı, CPU sakin
+[ ] $(a=b) $(b=a) ${a} script → kontrollü hata, asma yok
+[ ] Sahte ELF (e_phnum=65535, p_align=0) → kontrollü ret
